@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OPSIUM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Roboto:ital,wdth,wght@0,75..100,100..900;1,75..100,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" type="text/css" href="/css/login.css" />
+  </head>
+
+  <body>
+    <div class="card">
+      <img src="/images/opsium-logo-blk.png" height="15%" />
+      <form id="myForm" method="post">
+        <div>
+          <label for="idInput">Email</label>
+        </div>
+        <div>
+          <input
+            type="text"
+            id="idInput"
+            name="email"
+            placeholder="Enter email..."
+          />
+        </div>
+        <div>
+          <label for="secretInput">Password</label>
+        </div>
+        <div>
+          <input type="password" id="secretInput" name="password" />
+        </div>
+        <div>
+          <button type="submit" id="loginBtn" formaction="/login">LOGIN</button>
+        </div>
+        <p></p>
+        <div>
+          <% if (locals.errorMessage) { %>
+          <p class="userNotFound" id="loginError"><%= errorMessage %></p>
+          <% } else { %>
+          <p class="userNotFound" id="loginError">Please login...</p>
+          <% } %>
+        </div>
+      <div>
+        <p class="userNotFound" id="loginError"></p>
+      </div>
+      <div>
+        <a href="/forgot" class="forgotPassword"
+          >Oops! I forgot my password...</a
+        >
+      </div>
+        <button type="submit" id="registerBtn" formaction="/register">Register new user</button>
+      </div>
+    </form>
+  </body>
+</html>
+<!-- PRO PŘÍPAD, ŽE MÁ TEXT GENEROVAT TEXT -->
+<!-- <span class="forgotPassword" id="registerText" style="cursor:pointer;">
+  Register new user
+</span>
+<script>
+  document.getElementById('registerText').onclick = function() {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/register';
+    document.body.appendChild(form);
+    form.submit();
+  };
+</script> -->

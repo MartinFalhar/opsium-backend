@@ -1,0 +1,142 @@
+:root {
+  --card-height: 65vh;
+  --card-width: calc(var(--card-height) / 1.5);
+}
+
+body {
+  min-height: 100vh;
+  background: #d2d5da;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  box-sizing: border-box;
+  font-family: "Roboto", sans-serif;
+  font-size: 0.8rem;
+}
+
+h1 {
+  color: rgb(0, 0, 0);
+  font-family: "Roboto";
+  margin-bottom: 20px;
+}
+
+img {
+  padding-bottom: 60px;
+}
+
+label {
+  font-size: 13px;
+  text-align: left;
+}
+
+.card {
+  background: url("../images/whisper-img.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: var(--card-width);
+  height: var(--card-height);
+  padding: 3px;
+  position: relative;
+  border-radius: 30px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  flex-direction: column;
+  display: flex;
+  font-size: 1.5em;
+  color: rgb(#789ac1);
+  font-family: "Roboto";
+  box-shadow: 4px 4px 30px rgba(0, 0, 0, 0.3);
+  opacity: 1;
+}
+
+/* .card:hover {
+  color: rgb(88 199 250 / 100%);
+  transition: color 1s;
+}
+.card:hover:before,
+.card:hover:after {
+  animation: none;
+  opacity: 0;
+} */
+
+.card::before {
+  content: "";
+  width: 104%;
+  height: 102%;
+  border-radius: 30px;
+  background-image: linear-gradient(
+    var(--rotate),
+    #e0e7f0,
+    #d2d5da 43%,
+    #789ac1
+  );
+  position: absolute;
+  z-index: -1;
+  top: -1%;
+  left: -2%;
+  animation: spin 13s linear infinite;
+}
+
+.card::after {
+  position: absolute;
+  content: "";
+  top: calc(var(--card-height) / 6);
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  transform: scale(0.8);
+  filter: blur(calc(var(--card-height) / 6));
+  background-image: linear-gradient(
+    var(--rotate),
+    #e0e7f0,
+    #d2d5da 43%,
+    #789ac1
+  );
+  opacity: 1;
+  transition: opacity 0.5s;
+  animation: spin 20s linear infinite;
+}
+@property --rotate {
+  syntax: "<angle>";
+  initial-value: 132deg;
+  inherits: false;
+}
+
+@keyframes spin {
+  0% {
+    --rotate: 0deg;
+  }
+  100% {
+    --rotate: 360deg;
+  }
+}
+
+a {
+  color: #6d7280;
+  font-size: 0.8rem;
+  text-decoration: none;
+  font-family: sans-serif;
+  /* font-weight: bold; */
+  margin-top: 2rem;
+}
+
+.user {
+  color: white;
+  font-size: 24px;
+  font-family: "Roboto";
+}
+
+.userNotFound {
+  margin: 0;
+  padding: 0;
+  color: red;
+  font-size: 0.8rem;
+  /* font-family: "Roboto"; */
+}

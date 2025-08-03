@@ -1,0 +1,63 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Roboto", sans-serif;
+}
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  height: 100%;
+  background: linear-gradient(to right, #dceeff, #f6f9ff);
+  color: #1a1a1a;
+}
+
+.header {
+  background-color: #1f2937;
+  width: 100vw;
+  height: 15%;
+  padding: 1rem;
+  text-align: center;
+  color: #ffffff;
+  display: flex;
+}
+
+.main {
+  background-color: #789ac1;
+  width: 100vw;
+  height: 80%;
+  padding: 0;
+  text-align: center;
+  display: flex;
+  flex-direction: ro;
+}
+
+.menu {
+  display: flex;
+  width: 10%;
+  height: 100%;
+  padding: 1rem;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.content {
+  display: flex;
+  background-color: #ffffff;
+  width: 80%;
+  height: 100%;
+  padding: 2rem;
+  /* odstraněno overflow-y: auto; */
+}
+
+.footer {
+  display: flex;
+  background-color: #1f2937;
+  color: #ffffff;
+  width: 100vw;
+  height: 5%;
+  padding: 1rem;
+  text-align: center;
+}
