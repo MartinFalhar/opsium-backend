@@ -12,8 +12,9 @@ const allowedOrigins = [
   "https://opsium-frontend.onrender.com", // produkce
 ];
 //ORIGINAL VERSION
-// app.use(cors()); // Enable CORS policy for all routes
+// app.use(cors()); // Enable CORS policy for all routes.
 
+// Enable CORS policy for all routes
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -25,7 +26,7 @@ app.use(
     },
     credentials: true,
   })
-); // Enable CORS policy for all routes
+);
 
 const port = process.env.PORT || 3000;
 
@@ -34,12 +35,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 app.use("/", usersRoutes);
-
-// app.use(
-//   cors({
-//     origin: "http://localhost:5173",
-//   })
-// );
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

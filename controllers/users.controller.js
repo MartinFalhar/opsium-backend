@@ -12,6 +12,7 @@ export async function indexPage(req, res) {
     res.render("index.ejs", { content: JSON.stringify(error.response?.data) });
   }
 }
+
 export async function loginPage(req, res) {
   console.log("Controller> loginPage");
   try {
@@ -24,14 +25,15 @@ export async function loginPage(req, res) {
 }
 
 export async function loginUser(req, res) {
-  console.log("Controller> loginUser");
-  console.log("BODY:", req.body); // <--- důležité
+  console.log("BCK Controller> loginUser");
+  console.log("BCK BODY:", req.body); // <--- důležité
 
   try {
     const loginProceed = await login(req.body.email, req.body.password);
-    if (loginProceed) {
+    console.log("BCK Login proceed:", loginProceed.id);
+    if (loginProceed.id > 0) {
       // res.render("index.ejs", { login: req.body.email });
-      res.json({ success: true, message: "Přihlášení úspěšné" });
+      res.json(loginProceed); // vracíme uživatele, pokud je přihlášení úspěšné
     } else {
       // res.render("login.ejs", {
       //   errorMessage: "Incorrect login details, bro...",

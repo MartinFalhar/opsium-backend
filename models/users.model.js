@@ -35,15 +35,16 @@ async function dbConnect() {
 // Kontrola přihlášení uživatele
 export async function login(email, password) {
   try {
-    const result = await pool.query(
-      "SELECT password FROM users WHERE email = $1",
-      [email]
-    );
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
+      email,
+    ]);
 
     if (result.rows.length > 0) {
-      const storedPassword = result.rows[0].password;
+      const storedUser = result.rows[0];
+      const storedPassword = storedUser.password;
       const match = await bcrypt.compare(password, storedPassword);
-      return match;
+
+      return match ? storedUser : false; // vrací uživatele, pokud je heslo správné
     } else {
       return false;
     }
