@@ -10,11 +10,12 @@ const allowedOrigins = [
   "http://localhost:5173", // vývojové prostředí
   "http://localhost:3000", // pro jistotu
   "https://opsium-frontend.onrender.com", // produkce
+  "https://www.opsium.cz", // produkce
+  "https://opsium.cz", // produkce
 ];
 //ORIGINAL VERSION
 // app.use(cors()); // Enable CORS policy for all routes.
 
-// Enable CORS policy for all routes
 app.use(
   cors({
     origin: function (origin, callback) {
