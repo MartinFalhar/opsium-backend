@@ -51,3 +51,8 @@ export async function registerUser(req, res) {
     : await insertNewUser(req.body.email, req.body.password);
   res.render("login.ejs");
 }
+
+export async function saveOptotyp(req, res) {
+  console.log("BCK Controller> saveOptotyp");
+  console.log("BCK BODY:", req.body); // <--- důležité  
+}

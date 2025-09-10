@@ -4,6 +4,7 @@ import {
   loginUser,
   indexPage,
   registerUser,
+  saveOptotyp
 } from "../controllers/users.controller.js";
 
 const router = express.Router();
@@ -15,5 +16,7 @@ router.get("/index", indexPage);
 router.post("/login", loginUser);
 
 router.post("/register", registerUser);
+
+router.post("/saveoptotyp", saveOptotyp);
 
 export default router;
