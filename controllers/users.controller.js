@@ -1,11 +1,15 @@
 // import { funkce z databaze } from "../models/users.model.js"
-import { login, existUser, insertNewUser } from "../models/users.model.js";
+import {
+  login,
+  existUser,
+  insertNewUser,
+  saveOptotypToDB,
+  loadOptotypFromDB,
+} from "../models/users.model.js";
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
-// app.use(bodyParser.urlencoded({ extended: true }));
 
 export async function indexPage(req, res) {
-  console.log("Controller> indexPage");
   try {
     res.render("index.ejs");
   } catch (error) {
@@ -20,24 +24,17 @@ export async function loginPage(req, res) {
   } catch (error) {
     res.render("login.ejs", { secret: JSON.stringify(error.response.data) });
   }
-  //const users = await getUsersFromDB();
-  //res.json(users);
 }
 
 export async function loginUser(req, res) {
   console.log("BCK Controller> loginUser");
-  console.log("BCK BODY:", req.body); // <--- důležité
-
   try {
     const loginProceed = await login(req.body.email, req.body.password);
     console.log("BCK Login proceed:", loginProceed.id);
     if (loginProceed.id > 0) {
-      // res.render("index.ejs", { login: req.body.email });
-      res.json(loginProceed); // vracíme uživatele, pokud je přihlášení úspěšné
+      // vracíme uživatele, pokud je přihlášení úspěšné
+      res.json(loginProceed);
     } else {
-      // res.render("login.ejs", {
-      //   errorMessage: "Incorrect login details, bro...",
-      // });
       res.json({ success: false, message: "Přihlášení NEúspěšné" });
     }
   } catch (error) {
@@ -53,6 +50,28 @@ export async function registerUser(req, res) {
 }
 
 export async function saveOptotyp(req, res) {
-  console.log("BCK Controller> saveOptotyp");
-  console.log("BCK BODY:", req.body); // <--- důležité  
+  try {
+    const saveOptotypSet = await saveOptotypToDB(req.body);
+    if (saveOptotypSet[0] == true) {
+      res.json({ message: "Uložení proběhlo v pořádku" });
+    } else {
+      res.json({ message: "Selhání" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function loadOptotyp(req, res) {
+  try {
+    const loadOptotypSet = await loadOptotypFromDB(req.body);
+    if (loadOptotypSet && loadOptotypSet.length > 0) {
+      res.json(loadOptotypSet);
+      // , { message: "Nahrání proběhlo v pořádku" });
+    } else {
+      res.json({ message: "Selhání" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
 }

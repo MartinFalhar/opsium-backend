@@ -4,7 +4,8 @@ import {
   loginUser,
   indexPage,
   registerUser,
-  saveOptotyp
+  saveOptotyp,
+  loadOptotyp,
 } from "../controllers/users.controller.js";
 
 const router = express.Router();
@@ -18,5 +19,7 @@ router.post("/login", loginUser);
 router.post("/register", registerUser);
 
 router.post("/saveoptotyp", saveOptotyp);
+
+router.post("/loadoptotyp", loadOptotyp);
 
 export default router;
