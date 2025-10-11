@@ -5,6 +5,10 @@ import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import pkg from "pg";
+import fs from "fs";
+import path from "path";
+
+
 dotenv.config();
 
 const { Pool } = pkg;
@@ -170,3 +174,29 @@ export async function loadOptotypFromDB(body) {
     throw err;
   }
 }
+
+export async function heroImgInfoFromDB(body) {
+  console.log(`body INFO  heriImg ${body.id}`);
+  try {
+    const result = await pool.query("SELECT * FROM hero_img WHERE id = $1", [
+      JSON.stringify(body.id),
+    ]);
+    if (result.rows.length > 0) {
+      // optotyp_set je už objekt (pokud je sloupec JSONB)
+      return result.rows;
+    } else {
+      console.log("BCKD HEROIMG error");
+      return null; // nebo [], podle potřeby
+    }
+  } catch (err) {
+    console.error("Chyba při načítání heroIMG:", err);
+    throw err;
+  }
+}
+
+// export async function heroImgFromDB(req, res) {
+//   const __dirname = path.resolve();
+//   const imagePath = path.join(__dirname, "uploads/hero_img/hero01.png");
+//   console.log(`BCK IMAGA ${imagePath}`)
+//   res.sendFile(imagePath);
+// }

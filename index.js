@@ -2,6 +2,7 @@ import express from "express";
 import usersRoutes from "./routes/users.routes.js";
 import bodyParser from "body-parser";
 import cors from "cors";
+import path from "path";
 
 const app = express();
 
@@ -32,6 +33,9 @@ app.use(
 const port = process.env.PORT || 3000;
 
 app.use(express.static("public"));
+const __dirname = path.resolve();
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
