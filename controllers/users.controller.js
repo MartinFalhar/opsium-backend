@@ -6,6 +6,7 @@ import {
   saveOptotypToDB,
   loadOptotypFromDB,
   heroImgInfoFromDB,
+  loadClientsFromDB,
   // heroImgFromDB,
 } from "../models/users.model.js";
 import bodyParser from "body-parser";
@@ -80,7 +81,6 @@ export async function loadOptotyp(req, res) {
 }
 
 export async function heroImgInfo(req, res) {
-
   try {
     const heroImgData = await heroImgInfoFromDB(req.body);
     if (heroImgData && heroImgData.length > 0) {
@@ -94,8 +94,6 @@ export async function heroImgInfo(req, res) {
   }
 }
 
-
-
 export async function heroImg(req, res) {
   const { id } = req.params;
   console.log(`BCK IMG request pro hero ID: ${id}`);
@@ -103,12 +101,24 @@ export async function heroImg(req, res) {
   const __dirname = path.resolve();
   const imagePath = path.join(__dirname, `uploads/hero_img/hero${id}.png`);
 
-    res.sendFile(imagePath, (err) => {
+  res.sendFile(imagePath, (err) => {
     if (err) {
       console.error("Chyba při odesílání obrázku:", err);
       res.status(404).send("Obrázek nenalezen");
     }
   });
+}
+
+export async function loadClients(req, res) {
+  try {
+    const clients = await loadClientsFromDB(req.body);
+    if (clients && clients.length > 0) {
+      res.json(clients);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání heroImgSet" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
   }
-
-
+}

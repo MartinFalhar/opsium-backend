@@ -8,7 +8,6 @@ import pkg from "pg";
 import fs from "fs";
 import path from "path";
 
-
 dotenv.config();
 
 const { Pool } = pkg;
@@ -200,3 +199,17 @@ export async function heroImgInfoFromDB(body) {
 //   console.log(`BCK IMAGA ${imagePath}`)
 //   res.sendFile(imagePath);
 // }
+
+export async function loadClientsFromDB(body) {
+  try {
+    const result = await pool.query("SELECT * FROM clients"); // Add filtering based on body if needed
+    if (result.rows.length > 0) {
+      return result.rows;
+    } else {
+      return []; // or null, based on your needs
+    }
+  } catch (err) {
+    console.error("Chyba při načítání klientů:", err);
+    throw err;
+  }
+}

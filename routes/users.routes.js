@@ -8,6 +8,7 @@ import {
   registerUser,
   saveOptotyp,
   loadOptotyp,
+  loadClients,
 } from "../controllers/users.controller.js";
 
 const router = express.Router();
@@ -27,5 +28,7 @@ router.post("/register", registerUser);
 router.post("/saveoptotyp", saveOptotyp);
 
 router.post("/loadoptotyp", loadOptotyp);
+
+router.post("/clients", loadClients);
 
 export default router;
