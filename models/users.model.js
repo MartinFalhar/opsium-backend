@@ -111,10 +111,10 @@ export async function existUser(email) {
 export async function insertNewUser(email, password) {
   try {
     const hash = await bcrypt.hash(password, saltRounds);
-    await pool.query("INSERT INTO users (email, password) VALUES ($1, $2)", [
-      email,
-      hash,
-    ]);
+    await pool.query(
+      "INSERT INTO users (name, surname, email, password, rights, organization, avater) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [name, surname, email, hash, rights, organization, avatar]
+    );
   } catch (err) {
     console.error("Chyba při registraci uživatele:", err);
     throw err;

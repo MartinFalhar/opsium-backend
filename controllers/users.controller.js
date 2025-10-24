@@ -7,6 +7,7 @@ import {
   loadOptotypFromDB,
   heroImgInfoFromDB,
   loadClientsFromDB,
+
   // heroImgFromDB,
 } from "../models/users.model.js";
 import bodyParser from "body-parser";
@@ -47,6 +48,7 @@ export async function loginUser(req, res) {
 }
 
 export async function registerUser(req, res) {
+  console.log("BCK Controller> registerUser");
   (await existUser(req.body.email))
     ? console.log("Uživatel již existuje.")
     : await insertNewUser(req.body.email, req.body.password);

@@ -23,7 +23,7 @@ router.post("/login", loginUser);
 
 router.post("/hero_img_info", heroImgInfo);
 
-router.post("/register", registerUser);
+router.post("/register_user", registerUser);
 
 router.post("/saveoptotyp", saveOptotyp);
 
