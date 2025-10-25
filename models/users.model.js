@@ -84,6 +84,7 @@ export async function existUser(email) {
       "SELECT email FROM users WHERE email = $1",
       [email]
     );
+    console.log("Existence uživatele:", result.rows.length > 0);
     return result.rows.length > 0;
   } catch (err) {
     console.error("Chyba při kontrole existence uživatele:", err);
@@ -108,11 +109,26 @@ export async function existUser(email) {
 
 // Kontrola existence uživatele
 // Vložení nového uživatele
-export async function insertNewUser(email, password) {
+export async function insertNewUser(user) {
+  // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
   try {
+    const {
+      name,
+      surname = null,
+      email,
+      password,
+      rights = 0,
+      organization = null,
+      avatar = null,
+    } = user || {};
+
+    if (!name || !email || !password) {
+      throw new Error("Missing required user fields: name, email or password");
+    }
+
     const hash = await bcrypt.hash(password, saltRounds);
     await pool.query(
-      "INSERT INTO users (name, surname, email, password, rights, organization, avater) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      "INSERT INTO users (name, surname, email, password, rights, organization, avatar) VALUES ($1, $2, $3, $4, $5, $6, $7)",
       [name, surname, email, hash, rights, organization, avatar]
     );
   } catch (err) {
@@ -203,6 +219,51 @@ export async function heroImgInfoFromDB(body) {
 export async function loadClientsFromDB(body) {
   try {
     const result = await pool.query("SELECT * FROM clients"); // Add filtering based on body if needed
+    if (result.rows.length > 0) {
+      return result.rows;
+    } else {
+      return []; // or null, based on your needs
+    }
+  } catch (err) {
+    console.error("Chyba při načítání klientů:", err);
+    throw err;
+  }
+}
+
+export async function adminListFromDB() {
+  try {
+    const minRights = 10;
+    const page = 1; // stránka, kterou chceme zobrazit (1 = první stránka)
+    const pageSize = 10; // kolik záznamů na stránku
+    const offset = (page - 1) * pageSize;
+
+    const result = await pool.query(
+      "SELECT * FROM users WHERE rights >= $1 ORDER BY rights DESC LIMIT $2 OFFSET $3",
+      [minRights, pageSize, offset]
+    );
+    if (result.rows.length > 0) {
+      return result.rows;
+    } else {
+      return []; // or null, based on your needs
+    }
+  } catch (err) {
+    console.error("Chyba při načítání klientů:", err);
+    throw err;
+  }
+}
+
+export async function usersListFromDB(organization) {
+  try {
+    const minRights = 1;
+    const page = 1; // stránka, kterou chceme zobrazit (1 = první stránka)
+    const pageSize = 10; // kolik záznamů na stránku
+    const offset = (page - 1) * pageSize;
+
+    const result = await pool.query(
+      "SELECT * FROM users WHERE rights = $1 AND organization = $2 ORDER BY rights DESC LIMIT $3 OFFSET $4",
+      [minRights, organization, pageSize, offset]
+    );
+    console.log("BCKD usersList result:", result.rows);
     if (result.rows.length > 0) {
       return result.rows;
     } else {

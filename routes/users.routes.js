@@ -6,6 +6,8 @@ import {
   heroImg,
   indexPage,
   registerUser,
+  adminList,
+  usersList,
   saveOptotyp,
   loadOptotyp,
   loadClients,
@@ -24,6 +26,10 @@ router.post("/login", loginUser);
 router.post("/hero_img_info", heroImgInfo);
 
 router.post("/register_user", registerUser);
+
+router.post("/admin_list", adminList);
+
+router.post("/users_list", usersList);
 
 router.post("/saveoptotyp", saveOptotyp);
 

@@ -7,9 +7,10 @@ import {
   loadOptotypFromDB,
   heroImgInfoFromDB,
   loadClientsFromDB,
-
-  // heroImgFromDB,
+  adminListFromDB,
+  usersListFromDB,
 } from "../models/users.model.js";
+
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
 import path from "path";
@@ -49,9 +50,10 @@ export async function loginUser(req, res) {
 
 export async function registerUser(req, res) {
   console.log("BCK Controller> registerUser");
+  console.log("BCK Controller> registerUser data:", req.body);
   (await existUser(req.body.email))
     ? console.log("Uživatel již existuje.")
-    : await insertNewUser(req.body.email, req.body.password);
+    : await insertNewUser(req.body);
   res.render("login.ejs");
 }
 
@@ -119,6 +121,36 @@ export async function loadClients(req, res) {
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání heroImgSet" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function adminList(req, res) {
+  try {
+    const clients = await adminListFromDB(req.body);
+    if (clients && clients.length > 0) {
+      res.json(clients);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání adminList" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function usersList(req, res) {
+   
+  try {
+    const clients = await usersListFromDB(req.body.organization);
+    if (clients && clients.length > 0) {
+      res.json(clients);
+      console.log("BCK Controller> usersList result:", clients);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání usersList" });
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });
