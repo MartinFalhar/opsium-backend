@@ -1,39 +1,15 @@
-// import pool from "../db.js";
+import pool from "../db/index.js";
 import express from "express";
 import axios from "axios";
 import mysql from "mysql2/promise";
 import bcrypt from "bcrypt";
-import dotenv from "dotenv";
-import pkg from "pg";
 import fs from "fs";
 import path from "path";
 
-dotenv.config();
-
-const { Pool } = pkg;
-
-const pool = new Pool({
-  connectionString: String(process.env.DATABASE_URL), // Render ti tuto proměnnou nastaví automaticky
-  ssl: { rejectUnauthorized: false }, // důležité kvůli certifikátu
-});
-// const connection = await mysql.createConnection({
-//   host: process.env.DB_HOST,
-//   user: process.env.DB_USER,
-//   password: process.env.DB_PASSWORD,
-//   database: process.env.DB_NAME,
-// });
 
 const saltRounds = 10;
 
-// Vytvoření připojení k databázi
-async function dbConnect() {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-  });
-}
+
 
 // Kontrola přihlášení uživatele
 export async function login(email, password) {
@@ -41,9 +17,9 @@ export async function login(email, password) {
     const result = await pool.query("SELECT * FROM users WHERE email = $1", [
       email,
     ]);
-
     if (result.rows.length > 0) {
       const storedUser = result.rows[0];
+
       const storedPassword = storedUser.password;
       const match = await bcrypt.compare(password, storedPassword);
 
@@ -92,6 +68,20 @@ export async function existUser(email) {
   }
 }
 
+export async function clientExists(email) {
+  try {
+    const result = await pool.query(
+      "SELECT email FROM users WHERE email = $1",
+      [email]
+    );
+    console.log("Existence uživatele:", result.rows.length > 0);
+    return result.rows.length > 0;
+  } catch (err) {
+    console.error("Chyba při kontrole existence uživatele:", err);
+    throw err;
+  }
+}
+
 // export async function existUser(email) {
 //   const connection = await dbConnect();
 //   try {
@@ -111,14 +101,15 @@ export async function existUser(email) {
 // Vložení nového uživatele
 export async function insertNewUser(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
+  console.log("BCKD insertNewUser:", user);
   try {
     const {
       name,
       surname = null,
       email,
       password,
-      rights = 0,
-      organization = null,
+      rights,
+      organization = user.organization,
       avatar = null,
     } = user || {};
 
@@ -127,9 +118,89 @@ export async function insertNewUser(user) {
     }
 
     const hash = await bcrypt.hash(password, saltRounds);
+
     await pool.query(
       "INSERT INTO users (name, surname, email, password, rights, organization, avatar) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [name, surname, email, hash, rights, organization, avatar]
+      [
+        name,
+        surname,
+        email,
+        hash,
+        rights,
+        organization,
+        avatar,
+      ]
+    );
+  } catch (err) {
+    console.error("Chyba při registraci uživatele:", err);
+    throw err;
+  }
+}
+
+export async function insertNewAdmin(user) {
+  console.log("BCKD insertNewAdmin:", user);
+  try {
+    const {
+      adm_name = `${user.name}`,
+      adm_surname = `${user.surname}`,
+      adm_email =`${user.email}`,
+      adm_password = `${user.password}`,
+      adm_rights = `${user.rights}`,
+      adm_organization,
+      avatar = null,
+      org_name = `${user.name + " Org"}`,
+      org_street = "neuvedena",
+      city = "neuvedeno",
+      org_postal_code = null,
+      org_ico = null,
+      org_dic = null,
+      org_id_admin,
+    } = user || {};
+
+    const hash = await bcrypt.hash(adm_password, saltRounds);
+
+    await pool.query("BEGIN");
+
+    const userResult = await pool.query(
+      "INSERT INTO users (name, surname, email, password, rights) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [adm_name, adm_surname, adm_email, hash, adm_rights]
+    );
+    const newAdminID = userResult.rows[0].id;
+    console.log("BCKD New Admin ID:", newAdminID);
+    const orgResult = await pool.query(
+      "INSERT INTO organizations (name, id_admin) VALUES ($1, $2) RETURNING organization_id",
+      [org_name, newAdminID]
+    );
+    const organizationId = orgResult.rows[0].organization_id;
+
+    await pool.query("UPDATE users SET organization = $1 WHERE id = $2", [
+      organizationId,
+      newAdminID,
+    ]);
+
+    await pool.query("COMMIT");
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    throw err;
+  }
+}
+
+export async function insertNewOrganization(user) {
+  // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
+  try {
+    const {
+      name = `${user.name + " Org"}`,
+      street = "neuvedena",
+      city = "neuvedeno",
+      postal_code = null,
+      ico = null,
+      dic = null,
+      id_admin = user.id,
+    } = user || {};
+
+    await pool.query(
+      "INSERT INTO organizations (name, street, city, postal_code, ICO, DIC, id_admin) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [name, street, city, postal_code, ico, dic, id_admin]
     );
   } catch (err) {
     console.error("Chyba při registraci uživatele:", err);
@@ -230,7 +301,7 @@ export async function loadClientsFromDB(body) {
   }
 }
 
-export async function adminListFromDB() {
+export async function loadAdminsFromDB() {
   try {
     const minRights = 10;
     const page = 1; // stránka, kterou chceme zobrazit (1 = první stránka)
@@ -252,7 +323,7 @@ export async function adminListFromDB() {
   }
 }
 
-export async function usersListFromDB(organization) {
+export async function loadUsersFromDB(organization) {
   try {
     const minRights = 1;
     const page = 1; // stránka, kterou chceme zobrazit (1 = první stránka)
@@ -274,3 +345,4 @@ export async function usersListFromDB(organization) {
     throw err;
   }
 }
+
