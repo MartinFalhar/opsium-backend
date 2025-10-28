@@ -1,7 +1,8 @@
 import express from "express";
-import usersRoutes from "./routes/users.routes.js";
-import optotypesRoutes from "./routes/optotypes.routes.js";
-import pagesRoutes from "./routes/pages.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
+import optotypRoutes from "./routes/optotyp.routes.js";
+import pageRoutes from "./routes/page.routes.js";
+import clientRoutes from "./routes/client.routes.js";
 import bodyParser from "body-parser";
 import cors from "cors";
 import path from "path";
@@ -41,9 +42,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.use("/", usersRoutes);
-app.use("/optotypes", optotypesRoutes);
-app.use("/pages", pagesRoutes);
+app.use("/", pageRoutes);
+app.use("/admin", adminRoutes);
+app.use("/client", clientRoutes);
+app.use("/optotype", optotypRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
