@@ -6,7 +6,6 @@ import bcrypt from "bcrypt";
 import fs from "fs";
 import path from "path";
 
-
 const saltRounds = 10;
 
 // Kontrola existence uživatele
@@ -24,6 +23,20 @@ export async function existUser(email) {
   }
 }
 
+export async function existMember(name, surname) {
+  try {
+    const result = await pool.query(
+      "SELECT name, surname FROM members WHERE name = $1 AND surname = $2",
+      [name, surname]
+    );
+    console.log("Existence member:", result.rows.length > 0);
+    return result.rows.length > 0;
+  } catch (err) {
+    console.error("Chyba při kontrole existence člena:", err);
+    throw err;
+  }
+}
+
 export async function clientExists(email) {
   try {
     const result = await pool.query(
@@ -34,6 +47,62 @@ export async function clientExists(email) {
     return result.rows.length > 0;
   } catch (err) {
     console.error("Chyba při kontrole existence uživatele:", err);
+    throw err;
+  }
+}
+
+export async function insertNewAdmin(user) {
+  console.log("BCKD insertNewAdmin:", user);
+  try {
+    const {
+      adm_name = `${user.name}`,
+      adm_surname = `${user.surname}`,
+      adm_email = `${user.email}`,
+      adm_password = `${user.password}`,
+      adm_rights = `${user.rights}`,
+      adm_organization,
+      avatar = null,
+      org_name = `${user.name + " Org"}`,
+      org_street = "<nezadáno>",
+      org_city = "<nezadáno>",
+      org_postal_code = 12345,
+      org_ico = 12345678,
+      org_dic = "CZ12345678",
+      org_id_admin,
+    } = user || {};
+
+    const hash = await bcrypt.hash(adm_password, saltRounds);
+
+    await pool.query("BEGIN");
+
+    const userResult = await pool.query(
+      "INSERT INTO users (name, surname, email, password, rights) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [adm_name, adm_surname, adm_email, hash, adm_rights]
+    );
+    const newAdminID = userResult.rows[0].id;
+    console.log("BCKD New Admin ID:", newAdminID);
+    const orgResult = await pool.query(
+      "INSERT INTO organizations (name, street, city, postal_code, ico, dic, id_admin) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+      [
+        org_name,
+        org_street,
+        org_city,
+        org_postal_code,
+        org_ico,
+        org_dic,
+        newAdminID,
+      ]
+    );
+    const organizationId = orgResult.rows[0].id;
+
+    await pool.query("UPDATE users SET organization = $1 WHERE id = $2", [
+      organizationId,
+      newAdminID,
+    ]);
+
+    await pool.query("COMMIT");
+  } catch (err) {
+    await pool.query("ROLLBACK");
     throw err;
   }
 }
@@ -55,6 +124,7 @@ export async function clientExists(email) {
 
 // Kontrola existence uživatele
 // Vložení nového uživatele
+
 export async function insertNewUser(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
   console.log("BCKD insertNewUser:", user);
@@ -77,15 +147,7 @@ export async function insertNewUser(user) {
 
     await pool.query(
       "INSERT INTO users (name, surname, email, password, rights, organization, avatar) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [
-        name,
-        surname,
-        email,
-        hash,
-        rights,
-        organization,
-        avatar,
-      ]
+      [name, surname, email, hash, rights, organization, avatar]
     );
   } catch (err) {
     console.error("Chyba při registraci uživatele:", err);
@@ -93,50 +155,30 @@ export async function insertNewUser(user) {
   }
 }
 
-export async function insertNewAdmin(user) {
-  console.log("BCKD insertNewAdmin:", user);
+export async function insertNewMember(member) {
+  // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
+  console.log("BCKD insertNewMember:", member);
   try {
     const {
-      adm_name = `${user.name}`,
-      adm_surname = `${user.surname}`,
-      adm_email =`${user.email}`,
-      adm_password = `${user.password}`,
-      adm_rights = `${user.rights}`,
-      adm_organization,
-      avatar = null,
-      org_name = `${user.name + " Org"}`,
-      org_street = "neuvedena",
-      city = "neuvedeno",
-      org_postal_code = null,
-      org_ico = null,
-      org_dic = null,
-      org_id_admin,
-    } = user || {};
+      name,
+      surname,
+      nick,
+      pin,
+      userID = member.id_user, //Parents ID 
+    } = member || {};
 
-    const hash = await bcrypt.hash(adm_password, saltRounds);
+    if (!name || !surname || !pin) {
+      throw new Error("Missing required member fields: name, email or pin");
+    }
 
-    await pool.query("BEGIN");
+    const hash = await bcrypt.hash(pin, saltRounds);
 
-    const userResult = await pool.query(
-      "INSERT INTO users (name, surname, email, password, rights) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [adm_name, adm_surname, adm_email, hash, adm_rights]
+    await pool.query(
+      "INSERT INTO members (name, surname, nick, pin, id_admin) VALUES ($1, $2, $3, $4, $5)",
+      [name, surname, nick, pin, userID]
     );
-    const newAdminID = userResult.rows[0].id;
-    console.log("BCKD New Admin ID:", newAdminID);
-    const orgResult = await pool.query(
-      "INSERT INTO organizations (name, id_admin) VALUES ($1, $2) RETURNING organization_id",
-      [org_name, newAdminID]
-    );
-    const organizationId = orgResult.rows[0].organization_id;
-
-    await pool.query("UPDATE users SET organization = $1 WHERE id = $2", [
-      organizationId,
-      newAdminID,
-    ]);
-
-    await pool.query("COMMIT");
   } catch (err) {
-    await pool.query("ROLLBACK");
+    console.error("Chyba při registraci člena:", err);
     throw err;
   }
 }
@@ -145,12 +187,12 @@ export async function insertNewOrganization(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
   try {
     const {
-      name = `${user.name + " Org"}`,
-      street = "neuvedena",
-      city = "neuvedeno",
-      postal_code = null,
-      ico = null,
-      dic = null,
+      name = `${user.surname + " Company"}`,
+      street = "<nezadáno>",
+      city = "<nezadáno>",
+      postal_code = 12345,
+      ico = 12345678,
+      dic = "CZ12345678",
       id_admin = user.id,
     } = user || {};
 
@@ -185,10 +227,6 @@ export async function insertNewOrganization(user) {
 //   });
 // }
 
-
-
-
-
 export async function loadAdminsFromDB() {
   try {
     const minRights = 10;
@@ -222,7 +260,7 @@ export async function loadUsersFromDB(organization) {
       "SELECT * FROM users WHERE rights = $1 AND organization = $2 ORDER BY rights DESC LIMIT $3 OFFSET $4",
       [minRights, organization, pageSize, offset]
     );
-    console.log("BCKD usersList result:", result.rows);
+
     if (result.rows.length > 0) {
       return result.rows;
     } else {
@@ -234,3 +272,24 @@ export async function loadUsersFromDB(organization) {
   }
 }
 
+export async function loadMembersFromDB(id_admin) {
+  try {
+    const minRights = 1;
+    const page = 1; // stránka, kterou chceme zobrazit (1 = první stránka)
+    const pageSize = 10; // kolik záznamů na stránku
+    const offset = (page - 1) * pageSize;
+
+    const result = await pool.query(
+      "SELECT * FROM members WHERE id_admin = $1 ORDER BY surname DESC LIMIT $2 OFFSET $3",
+      [id_admin, pageSize, offset]
+    );
+    if (result.rows.length > 0) {
+      return result.rows;
+    } else {
+      return []; // or null, based on your needs
+    }
+  } catch (err) {
+    console.error("Chyba při načítání členů:", err);
+    throw err;
+  }
+}
