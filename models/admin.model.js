@@ -37,20 +37,6 @@ export async function existMember(name, surname) {
   }
 }
 
-export async function clientExists(email) {
-  try {
-    const result = await pool.query(
-      "SELECT email FROM users WHERE email = $1",
-      [email]
-    );
-    console.log("Existence uživatele:", result.rows.length > 0);
-    return result.rows.length > 0;
-  } catch (err) {
-    console.error("Chyba při kontrole existence uživatele:", err);
-    throw err;
-  }
-}
-
 export async function insertNewAdmin(user) {
   console.log("BCKD insertNewAdmin:", user);
   try {
