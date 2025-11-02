@@ -3,6 +3,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import optotypRoutes from "./routes/optotyp.routes.js";
 import pageRoutes from "./routes/page.routes.js";
 import clientRoutes from "./routes/client.routes.js";
+import storeRoutes from "./routes/store.routes.js";
 import bodyParser from "body-parser";
 import cors from "cors";
 import path from "path";
@@ -45,6 +46,7 @@ app.use(bodyParser.json());
 app.use("/", pageRoutes);
 app.use("/admin", adminRoutes);
 app.use("/client", clientRoutes);
+app.use("/store", storeRoutes);
 app.use("/optotype", optotypRoutes);
 
 app.listen(port, () => {
