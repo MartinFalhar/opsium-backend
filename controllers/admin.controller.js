@@ -1,6 +1,6 @@
 import {
   existUser,
-  existMember, 
+  existMember,
   insertNewAdmin,
   insertNewUser,
   insertNewMember,
@@ -13,7 +13,6 @@ import {
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
 import path from "path";
-
 
 export async function createAdmin(req, res) {
   try {
@@ -30,7 +29,7 @@ export async function createAdmin(req, res) {
     }
 
     //Nový uživatel neexistuje, pokračujeme v registraci
-   await insertNewAdmin(req.body);
+    await insertNewAdmin(req.body);
 
     //pokud je to superadmin (rights 10), vytvoříme i organizaci
     // req.body.rights === 10 && (await insertNewOrganization(req.body));
@@ -96,7 +95,7 @@ export async function createMember(req, res) {
 
 export async function createBranch(req, res) {
   try {
-    //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje    
+    //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
     //Z req.body vezmeme email
     const { email } = req.body;
     const userExists = await existUser(email);
@@ -107,7 +106,10 @@ export async function createBranch(req, res) {
     }
     //Pokud uživatel neexistuje, vytvoříme nového
     const newClientID = await insertNewUser(req.body);
-    res.json({ message: "Uživatel byl úspěšně vytvořen.", userID: newClientID });
+    res.json({
+      message: "Uživatel byl úspěšně vytvořen.",
+      userID: newClientID,
+    });
   } catch (error) {
     console.error("Chyba při vytváření uživatele:", error);
     res.status(500).send("Nastala chyba při vytváření uživatele.");
@@ -127,13 +129,15 @@ export async function createClient(req, res) {
     }
     //Pokud uživatel neexistuje, vytvoříme nového
     const newClientID = await insertNewUser(req.body);
-    res.json({ message: "Uživatel byl úspěšně vytvořen.", userID: newClientID });
+    res.json({
+      message: "Uživatel byl úspěšně vytvořen.",
+      userID: newClientID,
+    });
   } catch (error) {
     console.error("Chyba při vytváření uživatele:", error);
     res.status(500).send("Nastala chyba při vytváření uživatele.");
   }
 }
-
 
 // export async function createClient(req, res) {
 //   try {
@@ -191,7 +195,7 @@ export async function membersList(req, res) {
     //smazáno clients.length > 0 &&
     if (clients) {
       res.json(clients);
-      console.log("BCK Controller> usersList result:", clients);
+      console.log("BCK Controller> MEMBERList result:", clients);
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při nahrávání usersList" });
@@ -200,5 +204,3 @@ export async function membersList(req, res) {
     res.json({ success: false, message: "Chyba serveru" });
   }
 }
-
-

@@ -1,7 +1,4 @@
-import {
-  login,
-  heroImgInfoFromDB,
-} from "../models/page.model.js";
+import { login, heroImgInfoFromDB } from "../models/page.model.js";
 
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
@@ -25,7 +22,6 @@ export async function loginPage(req, res) {
 }
 
 export async function loginUser(req, res) {
-    console.log("999Controller> loginUser");
   try {
     const loginProceed = await login(req.body.email, req.body.password);
     if (loginProceed.id > 0) {
