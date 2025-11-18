@@ -54,7 +54,6 @@ export async function insertNewAdmin(user) {
       org_postal_code = 12345,
       org_ico = 12345678,
       org_dic = "CZ12345678",
-      org_id_admin,
     } = user || {};
 
     const hash = await bcrypt.hash(adm_password, saltRounds);
@@ -68,20 +67,12 @@ export async function insertNewAdmin(user) {
     const newAdminID = userResult.rows[0].id;
     console.log("BCKD New Admin ID:", newAdminID);
     const orgResult = await pool.query(
-      "INSERT INTO organizations (name, street, city, postal_code, ico, dic, id_admin) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
-      [
-        org_name,
-        org_street,
-        org_city,
-        org_postal_code,
-        org_ico,
-        org_dic,
-        newAdminID,
-      ]
+      "INSERT INTO organizations (name, street, city, postal_code, ico, dic) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+      [org_name, org_street, org_city, org_postal_code, org_ico, org_dic]
     );
     const organizationId = orgResult.rows[0].id;
 
-    await pool.query("UPDATE users SET organization = $1 WHERE id = $2", [
+    await pool.query("UPDATE users SET id_organizations = $1 WHERE id = $2", [
       organizationId,
       newAdminID,
     ]);
@@ -150,7 +141,7 @@ export async function insertNewMember(member) {
       surname,
       nick,
       pin,
-      userID = member.id_user, //Parents ID 
+      userID = member.id_user, //Parents ID
     } = member || {};
 
     if (!name || !surname || !pin) {
@@ -243,7 +234,7 @@ export async function loadUsersFromDB(organization) {
     const offset = (page - 1) * pageSize;
 
     const result = await pool.query(
-      "SELECT * FROM users WHERE rights = $1 AND organization = $2 ORDER BY rights DESC LIMIT $3 OFFSET $4",
+      "SELECT * FROM users WHERE rights = $1 AND id_organizations = $2 ORDER BY rights DESC LIMIT $3 OFFSET $4",
       [minRights, organization, pageSize, offset]
     );
 
@@ -266,7 +257,7 @@ export async function loadMembersFromDB(id_admin) {
     const offset = (page - 1) * pageSize;
 
     const result = await pool.query(
-      "SELECT * FROM members WHERE id_admin = $1 ORDER BY surname DESC LIMIT $2 OFFSET $3",
+      "SELECT * FROM members WHERE id_users = $1 ORDER BY surname DESC LIMIT $2 OFFSET $3",
       [id_admin, pageSize, offset]
     );
     if (result.rows.length > 0) {
@@ -276,6 +267,54 @@ export async function loadMembersFromDB(id_admin) {
     }
   } catch (err) {
     console.error("Chyba při načítání členů:", err);
+    throw err;
+  }
+}
+
+export async function opsiumInfoFromDB() {
+  const dataOpsiumInfo = {
+    countAdmin: 0,
+    countTotal: 0,
+    countTotalBranches: 0,
+    countTotalMembers: 0,
+    countTotalClients: 0,
+  };
+
+  try {
+    //CountAdmin
+    const adminRights = 10;
+    const res01 = await pool.query(
+      "SELECT COUNT(*) AS countadmincount FROM users WHERE rights = $1",
+      [adminRights]
+    );
+    dataOpsiumInfo.countAdmin = Number(res01.rows[0].countadmincount);
+
+    //CountTotal
+    const res02 = await pool.query("SELECT COUNT(*) AS counttotal FROM users");
+    dataOpsiumInfo.countTotal = Number(res02.rows[0].counttotal);
+
+    //CountBranches
+    const res03 = await pool.query(
+      "SELECT COUNT(*) AS countbranches FROM branches"
+    );
+    dataOpsiumInfo.countTotalBranches = Number(res03.rows[0].countbranches);
+
+    //CountMembers
+    const res04 = await pool.query(
+      "SELECT COUNT(*) AS countmembers FROM members"
+    );
+    dataOpsiumInfo.countTotalMembers = Number(res04.rows[0].countmembers);
+
+    //CountClients
+    const res05 = await pool.query(
+      "SELECT COUNT(*) AS countclients FROM clients"
+    );
+    dataOpsiumInfo.countTotalClients = Number(res05.rows[0].countclients);
+
+    console.log(dataOpsiumInfo);
+    return dataOpsiumInfo;
+  } catch (err) {
+    console.error("Chyba při MODUL OPSIUM INFO:", err);
     throw err;
   }
 }
