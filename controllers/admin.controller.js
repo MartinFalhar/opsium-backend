@@ -9,6 +9,7 @@ import {
   loadUsersFromDB,
   loadMembersFromDB,
   opsiumInfoFromDB,
+  adminInfoFromDB,
 } from "../models/admin.model.js";
 
 import bodyParser from "body-parser";
@@ -209,6 +210,19 @@ export async function membersList(req, res) {
 export async function opsiumInfo(req, res) {
   try {
     const info = await opsiumInfoFromDB();
+    return res.json(info);
+  } catch (error) {
+    console.error("Controller > opsiumInfo error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Chyba serveru při získávání OPISUM INFO",
+    });
+  }
+}
+
+export async function adminInfo(req, res) {
+  try {
+    const info = await adminInfoFromDB(req.body.id_organizations);
     return res.json(info);
   } catch (error) {
     console.error("Controller > opsiumInfo error:", error);

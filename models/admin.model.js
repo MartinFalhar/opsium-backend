@@ -318,3 +318,46 @@ export async function opsiumInfoFromDB() {
     throw err;
   }
 }
+
+export async function adminInfoFromDB(id_organizations) {
+  const dataAdminInfo = {
+    countTotal: 0,
+    countTotalBranches: 0,
+    countTotalMembers: 0,
+    countTotalClients: 0,
+  };
+
+  try {
+    //CountTotal
+    const res02 = await pool.query(
+      "SELECT COUNT(*) AS counttotal FROM users WHERE id_organizations = $1",
+      [id_organizations]
+    );
+    dataAdminInfo.countTotal = Number(res02.rows[0].counttotal);
+
+    //CountBranches
+    const res03 = await pool.query(
+      "SELECT COUNT(*) AS countbranches FROM branches WHERE id_organizations = $1",
+      [id_organizations]
+    );
+    dataAdminInfo.countTotalBranches = Number(res03.rows[0].countbranches);
+
+    //CountMembers
+    const res04 = await pool.query(
+      "SELECT COUNT(*) AS countmembers FROM members"
+    );
+    dataAdminInfo.countTotalMembers = Number(res04.rows[0].countmembers);
+
+    //CountClients
+    const res05 = await pool.query(
+      "SELECT COUNT(*) AS countclients FROM clients"
+    );
+    dataAdminInfo.countTotalClients = Number(res05.rows[0].countclients);
+
+    console.log(dataAdminInfo);
+    return dataAdminInfo;
+  } catch (err) {
+    console.error("Chyba při MODUL OPSIUM INFO:", err);
+    throw err;
+  }
+}

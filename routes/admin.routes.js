@@ -8,6 +8,7 @@ import {
   usersList,
   membersList,
   opsiumInfo,
+  adminInfo,
 } from "../controllers/admin.controller.js";
 
 const router = express.Router();
@@ -27,5 +28,7 @@ router.post("/users_list", usersList);
 router.post("/members_list", membersList);
 
 router.get("/opsiumInfo", opsiumInfo);
+
+router.post("/adminInfo", adminInfo);
 
 export default router;
