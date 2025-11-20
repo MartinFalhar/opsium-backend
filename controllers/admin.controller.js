@@ -1,5 +1,6 @@
 import {
   existUser,
+  existBranche,
   existMember,
   insertNewAdmin,
   insertNewUser,
@@ -7,6 +8,7 @@ import {
   insertNewOrganization,
   loadAdminsFromDB,
   loadUsersFromDB,
+  loadBranchesFromDB,
   loadMembersFromDB,
   opsiumInfoFromDB,
   adminInfoFromDB,
@@ -95,22 +97,22 @@ export async function createMember(req, res) {
   }
 }
 
-export async function createBranch(req, res) {
+export async function createBranche(req, res) {
   try {
     //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
     //Z req.body vezmeme email
     const { email } = req.body;
-    const userExists = await existUser(email);
+    const userExists = await existBranche(email);
     //Pokud je uživatel nalezen, vrátíme chybu
     if (userExists) {
-      console.log("Uživatel již existuje.");
-      return res.status(400).send("Uživatel již existuje.");
+      console.log("Pobočka již existuje.");
+      return res.status(400).send("Pobočka již existuje.");
     }
     //Pokud uživatel neexistuje, vytvoříme nového
-    const newClientID = await insertNewUser(req.body);
+    const newBrancheID = await insertNewBranche(req.body);
     res.json({
       message: "Uživatel byl úspěšně vytvořen.",
-      userID: newClientID,
+      userID: newBrancheID,
     });
   } catch (error) {
     console.error("Chyba při vytváření uživatele:", error);
@@ -185,6 +187,22 @@ export async function usersList(req, res) {
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při nahrávání usersList" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function branchesList(req, res) {
+  try {
+    const branche = await loadBranchesFromDB(req.body.organization);
+    
+    if (branche) {
+      res.json(branche);
+      console.log("BCK Controller> BRANCHList result:", branche);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání branchesList" });
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });

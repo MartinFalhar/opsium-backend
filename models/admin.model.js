@@ -23,6 +23,19 @@ export async function existUser(email) {
   }
 }
 
+export async function existBranche(name) {
+  try {
+    const result = await pool.query(
+      "SELECT name FROM branches WHERE name = $1",
+      [name]
+    );
+    console.log("Existence pobočky:", result.rows.length > 0);
+    return result.rows.length > 0;
+  } catch (err) {
+    console.error("Chyba při kontrole existence pobočky:", err);
+    throw err;
+  }
+}
 export async function existMember(name, surname) {
   try {
     const result = await pool.query(
@@ -112,8 +125,7 @@ export async function insertNewUser(user) {
       email,
       password,
       rights,
-      organization = user.organization,
-      avatar = null,
+      id_organizations = user.id_organizations,
     } = user || {};
 
     if (!name || !email || !password) {
@@ -123,8 +135,8 @@ export async function insertNewUser(user) {
     const hash = await bcrypt.hash(password, saltRounds);
 
     await pool.query(
-      "INSERT INTO users (name, surname, email, password, rights, organization, avatar) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [name, surname, email, hash, rights, organization, avatar]
+      "INSERT INTO users (name, surname, email, password, rights, id_organizations) VALUES ($1, $2, $3, $4, $5, $6)",
+      [name, surname, email, hash, rights, id_organizations]
     );
   } catch (err) {
     console.error("Chyba při registraci uživatele:", err);
@@ -249,6 +261,27 @@ export async function loadUsersFromDB(organization) {
   }
 }
 
+export async function loadBranchesFromDB(id_organizations) {
+  try {
+    const minRights = 1;
+    const page = 1; // stránka, kterou chceme zobrazit (1 = první stránka)
+    const pageSize = 10; // kolik záznamů na stránku
+    const offset = (page - 1) * pageSize;
+
+    const result = await pool.query(
+      "SELECT * FROM branches WHERE id_organizations = $1 ORDER BY name DESC LIMIT $2 OFFSET $3",
+      [id_organizations, pageSize, offset]
+    );
+    if (result.rows.length > 0) {
+      return result.rows;
+    } else {
+      return []; // or null, based on your needs
+    }
+  } catch (err) {
+    console.error("Chyba při načítání členů:", err);
+    throw err;
+  }
+}
 export async function loadMembersFromDB(id_admin) {
   try {
     const minRights = 1;
@@ -257,7 +290,7 @@ export async function loadMembersFromDB(id_admin) {
     const offset = (page - 1) * pageSize;
 
     const result = await pool.query(
-      "SELECT * FROM members WHERE id_users = $1 ORDER BY surname DESC LIMIT $2 OFFSET $3",
+      "SELECT * FROM members WHERE id_organizations = $1 ORDER BY surname DESC LIMIT $2 OFFSET $3",
       [id_admin, pageSize, offset]
     );
     if (result.rows.length > 0) {
