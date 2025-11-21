@@ -1,9 +1,10 @@
 import {
   existUser,
-  existBranche,
+  existBranch,
   existMember,
   insertNewAdmin,
   insertNewUser,
+  insertNewBranch,
   insertNewMember,
   insertNewOrganization,
   loadAdminsFromDB,
@@ -97,22 +98,23 @@ export async function createMember(req, res) {
   }
 }
 
-export async function createBranche(req, res) {
+export async function createBranch(req, res) {
   try {
     //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
     //Z req.body vezmeme email
-    const { email } = req.body;
-    const userExists = await existBranche(email);
+    const { name } = req.body;
+    const userExists = await existBranch(name);
     //Pokud je uživatel nalezen, vrátíme chybu
     if (userExists) {
       console.log("Pobočka již existuje.");
       return res.status(400).send("Pobočka již existuje.");
     }
     //Pokud uživatel neexistuje, vytvoříme nového
-    const newBrancheID = await insertNewBranche(req.body);
+    console.log(`BRANCH DOENS'T EXIST, creating new one:`, req.body);
+    const newBranchID = await insertNewBranch(req.body);
     res.json({
       message: "Uživatel byl úspěšně vytvořen.",
-      userID: newBrancheID,
+      userID: newBranchID,
     });
   } catch (error) {
     console.error("Chyba při vytváření uživatele:", error);

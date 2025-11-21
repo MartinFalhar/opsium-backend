@@ -23,7 +23,7 @@ export async function existUser(email) {
   }
 }
 
-export async function existBranche(name) {
+export async function existBranch(name) {
   try {
     const result = await pool.query(
       "SELECT name FROM branches WHERE name = $1",
@@ -115,6 +115,43 @@ export async function insertNewAdmin(user) {
 // Kontrola existence uživatele
 // Vložení nového uživatele
 
+export async function insertNewBranch(branch) {
+  // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
+  console.log("BCKD insertNewBranch:", branch);
+  try {
+    const {
+      name,
+      street = "<nezadáno>",
+      city = "<nezadáno>",
+      postal_code = 12345,
+      open_hours = { pondělí: "08:00-17:00" },
+      phone = { phone: "<nezadáno>" },
+      email = { email: "<nezadáno>" },
+      id_organizations = id_organizations,
+    } = branch || {};
+
+    if (!name) {
+      throw new Error("Missing required branch field: name");
+    }
+
+    await pool.query(
+      "INSERT INTO branches (name, street, city, postal_code, open_hours, phone, email, id_organizations) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      [
+        name,
+        street,
+        city,
+        postal_code,
+        open_hours,
+        phone,
+        email,
+        id_organizations,
+      ]
+    );
+  } catch (err) {
+    console.error("Chyba při registraci nové pobočky:", err);
+    throw err;
+  }
+}
 export async function insertNewUser(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
   console.log("BCKD insertNewUser:", user);

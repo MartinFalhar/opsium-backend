@@ -1,5 +1,8 @@
 import {
-  loadClientsFromDB, insertNewClient, existClient
+  loadClientsFromDB,
+  insertNewClient,
+  existClient,
+  saveExaminationToDB,
 } from "../models/client.model.js";
 
 export async function loadClients(req, res) {
@@ -21,7 +24,7 @@ export async function createClient(req, res) {
     //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
     //Z req.body vezmeme name, surname, birth_date
     const { name, surname, birth_date } = req.body;
-    const userExists = await existClient(name, surname, birth_date);
+    const userExists = await existClient(req.body);
 
     //Pokud je uživatel nalezen, vrátíme chybu
     if (userExists) {
@@ -30,8 +33,28 @@ export async function createClient(req, res) {
     }
 
     //Nový uživatel neexistuje, pokračujeme v registraci
-   await insertNewClient(req.body);
+    await insertNewClient(req.body);
+  } catch (error) {
+    console.error("Chyba při registraci klienta:", error);
+    res.status(500).send("Nastala chyba při registraci klienta.");
+  }
+}
 
+export async function saveExamination(req, res) {
+  try {
+    //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
+    //Z req.body vezmeme name, surname, birth_date
+    const { name, surname, birth_date } = req.body;
+    const userExists = await existClient(req.body);
+
+    //Pokud je uživatel nalezen, vrátíme chybu
+    if (userExists) {
+      console.log("Klient již existuje.");
+      return res.status(400).send("Klient již existuje.");
+    }
+
+    //Nový uživatel neexistuje, pokračujeme v registraci
+    await insertNewClient(req.body);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");

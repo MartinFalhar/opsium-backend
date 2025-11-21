@@ -2,7 +2,7 @@ import pool from "../db/index.js";
 
 export async function loadClientsFromDB(body) {
   try {
-    const result = await pool.query("SELECT * FROM clients WHERE id_user = $1", [body.userId]); // Add filtering based on body if needed
+    const result = await pool.query("SELECT * FROM clients WHERE id_organizations = $1", [body.id_organizations]); // Add filtering based on body if needed
     if (result.rows.length > 0) {
       return result.rows;
     } else {
@@ -31,14 +31,37 @@ export async function existClient(name, surname, birth_date) {
 export async function insertNewClient(client) {
   console.log("BCKD insertNewClient:", client);
   try {
-    const { degree_front, name, surname, degree_post, birth_date, id_user } =
+    const { degree_before, name, surname, degree_after, birth_date, id_organizations } =
       client || {};
 
     await pool.query("BEGIN");
 
     const clientResult = await pool.query(
-      "INSERT INTO clients (degree_front, name, surname, degree_post, birth_date, id_user) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [degree_front, name, surname, degree_post, birth_date, id_user]
+      "INSERT INTO clients (degree_before, name, surname, degree_after, birth_date, id_organizations) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+      [degree_before, name, surname, degree_after, birth_date, id_organizations]
+    );
+    const newClientID = clientResult.rows[0].id;
+    console.log("BCKD New Client ID:", newClientID);
+    await pool.query("COMMIT");
+    return newClientID;
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    throw err;
+  }
+}
+
+
+export async function saveExaminationToDB(examination) {
+  console.log("BCKD saveExaminationToDB:", examination);
+  try {
+    const { degree_before, name, surname, degree_after, birth_date, id_organizations } =
+      examination || {};
+
+    await pool.query("BEGIN");
+
+    const clientResult = await pool.query(
+      "INSERT INTO clients (degree_before, name, surname, degree_after, birth_date, id_organizations) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+      [degree_before, name, surname, degree_after, birth_date, id_organizations]
     );
     const newClientID = clientResult.rows[0].id;
     console.log("BCKD New Client ID:", newClientID);
