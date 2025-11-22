@@ -8,8 +8,10 @@ import {
   usersList,
   branchesList,
   membersList,
-  opsiumInfo,
+  superadminInfo,
   adminInfo,
+  organizationInfo,
+  branchInfo,
 } from "../controllers/admin.controller.js";
 
 const router = express.Router();
@@ -30,8 +32,12 @@ router.post("/branches_list", branchesList);
 
 router.post("/members_list", membersList);
 
-router.get("/opsiumInfo", opsiumInfo);
+router.get("/superadminInfo", superadminInfo);
 
 router.post("/adminInfo", adminInfo);
+
+router.post("/organizationInfo", organizationInfo);
+
+router.post("/branchInfo", branchInfo);
 
 export default router;

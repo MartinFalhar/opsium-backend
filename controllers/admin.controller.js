@@ -11,8 +11,10 @@ import {
   loadUsersFromDB,
   loadBranchesFromDB,
   loadMembersFromDB,
-  opsiumInfoFromDB,
+  superadminInfoFromDB,
   adminInfoFromDB,
+  organizationInfoFromDB,
+  branchInfoFromDB,
 } from "../models/admin.model.js";
 
 import bodyParser from "body-parser";
@@ -61,6 +63,10 @@ export async function createUser(req, res) {
 
     //Nový uživatel neexistuje, pokračujeme v registraci
     const newAdminID = await insertNewUser(req.body);
+
+    req.body.id_users = newAdminID;
+    //vytvořímě i pobočku pro tohoto uživatele
+    const newBranch = await insertNewBranch(req.body);
 
     //pokud je to superadmin (rights 10), vytvoříme i organizaci
     req.body.rights === 10 && (await insertNewOrganization(req.body));
@@ -217,7 +223,6 @@ export async function membersList(req, res) {
     //smazáno clients.length > 0 &&
     if (clients) {
       res.json(clients);
-      console.log("BCK Controller> MEMBERList result:", clients);
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při nahrávání usersList" });
@@ -227,12 +232,12 @@ export async function membersList(req, res) {
   }
 }
 
-export async function opsiumInfo(req, res) {
+export async function superadminInfo(req, res) {
   try {
-    const info = await opsiumInfoFromDB();
+    const info = await superadminInfoFromDB();
     return res.json(info);
   } catch (error) {
-    console.error("Controller > opsiumInfo error:", error);
+    console.error("Controller > superadminInfo error:", error);
     return res.status(500).json({
       success: false,
       message: "Chyba serveru při získávání OPISUM INFO",
@@ -245,7 +250,33 @@ export async function adminInfo(req, res) {
     const info = await adminInfoFromDB(req.body.id_organizations);
     return res.json(info);
   } catch (error) {
+    console.error("Controller > adminInfo error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Chyba serveru při získávání ADMIN INFO",
+    });
+  }
+}
+
+export async function organizationInfo(req, res) {
+  try {
+    const organizationInfo = await organizationInfoFromDB(req.body.id_organizations);
+    return res.json(organizationInfo);
+  } catch (error) {
     console.error("Controller > opsiumInfo error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Chyba serveru při získávání OPISUM INFO",
+    });
+  }
+}
+
+export async function branchInfo(req, res) {
+  try {
+    const branchInfo = await branchInfoFromDB(req.body.id_user);
+    return res.json(branchInfo);
+  } catch (error) {
+    console.error("Controller > branchInfo error:", error);
     return res.status(500).json({
       success: false,
       message: "Chyba serveru při získávání OPISUM INFO",
