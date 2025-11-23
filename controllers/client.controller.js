@@ -42,9 +42,6 @@ export async function createClient(req, res) {
 
 export async function saveExamination(req, res) {
   try {
-    //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
-    //Z req.body vezmeme name, surname, birth_date
-    const { name, surname, birth_date } = req.body;
     const userExists = await existClient(req.body);
 
     //Pokud je uživatel nalezen, vrátíme chybu
