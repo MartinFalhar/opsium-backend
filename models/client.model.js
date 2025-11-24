@@ -12,7 +12,6 @@ export async function loadClientsFromDB(body) {
       [body.id_branch]
     ); // Add filtering based on body if needed
     if (result.rows.length > 0) {
-      console.log("666BCKD loaded clients:", result.rows[2]);
       return result.rows;
     } else {
       return []; // or null, based on your needs
@@ -38,7 +37,6 @@ export async function existClient(name, surname, birth_date) {
 }
 
 export async function insertNewClient(client) {
-  console.log("BCKD insertNewClient:", client);
   try {
     const {
       degree_before,
@@ -65,28 +63,27 @@ export async function insertNewClient(client) {
   }
 }
 
-export async function saveExaminationToDB(examination) {
-  console.log("BCKD saveExaminationToDB:", examination);
+export async function saveExaminationToDB(newExamDataSet) {
+  console.log("BCKD saveExaminationToDB:", newExamDataSet);
   try {
     const {
-      degree_before,
-      name,
-      surname,
-      degree_after,
-      birth_date,
-      id_organizations,
-    } = examination || {};
+      id_clients: id_clients,
+      id_branches: id_branches,
+      id_members: id_members,
+      data: data,
+    } = newExamDataSet || {};
 
     await pool.query("BEGIN");
 
-    const clientResult = await pool.query(
-      "INSERT INTO clients (degree_before, name, surname, degree_after, birth_date, id_organizations) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [degree_before, name, surname, degree_after, birth_date, id_organizations]
-    );
-    const newClientID = clientResult.rows[0].id;
-    console.log("BCKD New Client ID:", newClientID);
+    const saveExamination = await pool.query(
+      "INSERT INTO examinations (id_clients, id_branches, id_members, data) VALUES ($1, $2, $3, $4) RETURNING id",
+      [id_clients, id_branches, id_members, data]
+    ); 
+
+
     await pool.query("COMMIT");
-    return newClientID;
+    console.log("BCKD Saved Examination ID:", saveExamination.rows[0].id);
+    return saveExamination.rows[0].id;
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;

@@ -15,7 +15,6 @@ export async function existUser(email) {
       "SELECT email FROM users WHERE email = $1",
       [email]
     );
-    console.log("Existence uživatele:", result.rows.length > 0);
     return result.rows.length > 0;
   } catch (err) {
     console.error("Chyba při kontrole existence uživatele:", err);
@@ -29,7 +28,6 @@ export async function existBranch(name) {
       "SELECT name FROM branches WHERE name = $1",
       [name]
     );
-    console.log("Existence pobočky:", result.rows.length > 0);
     return result.rows.length > 0;
   } catch (err) {
     console.error("Chyba při kontrole existence pobočky:", err);
@@ -42,7 +40,6 @@ export async function existMember(name, surname) {
       "SELECT name, surname FROM members WHERE name = $1 AND surname = $2",
       [name, surname]
     );
-    console.log("Existence member:", result.rows.length > 0);
     return result.rows.length > 0;
   } catch (err) {
     console.error("Chyba při kontrole existence člena:", err);
@@ -51,7 +48,6 @@ export async function existMember(name, surname) {
 }
 
 export async function insertNewAdmin(user) {
-  console.log("BCKD insertNewAdmin:", user);
   try {
     const {
       adm_name = `${user.name}`,
@@ -78,7 +74,6 @@ export async function insertNewAdmin(user) {
       [adm_name, adm_surname, adm_email, hash, adm_rights]
     );
     const newAdminID = userResult.rows[0].id;
-    console.log("BCKD New Admin ID:", newAdminID);
     const orgResult = await pool.query(
       "INSERT INTO organizations (name, street, city, postal_code, ico, dic) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
       [org_name, org_street, org_city, org_postal_code, org_ico, org_dic]
@@ -117,7 +112,7 @@ export async function insertNewAdmin(user) {
 
 export async function insertNewBranch(branch) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
-  console.log("BCKD insertNewBranch:", branch);
+
   try {
     const {
       id_users = branch.id_users,
@@ -156,7 +151,6 @@ export async function insertNewBranch(branch) {
 }
 export async function insertNewUser(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
-  console.log("BCKD insertNewUser:", user);
   try {
     const {
       name,
@@ -186,7 +180,6 @@ export async function insertNewUser(user) {
 
 export async function insertNewMember(member) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
-  console.log("BCKD insertNewMember:", member);
   try {
     const {
       name,
@@ -385,7 +378,6 @@ export async function superadminInfoFromDB() {
     );
     dataOpsiumInfo.countTotalClients = Number(res05.rows[0].countclients);
 
-    console.log(dataOpsiumInfo);
     return dataOpsiumInfo;
   } catch (err) {
     console.error("Chyba při MODUL OPSIUM INFO:", err);
@@ -430,7 +422,6 @@ export async function adminInfoFromDB(id_organizations) {
     );
     dataAdminInfo.countTotalClients = Number(res05.rows[0].countclients);
 
-    console.log(dataAdminInfo);
     return dataAdminInfo;
   } catch (err) {
     console.error("Chyba při MODUL OPSIUM INFO:", err);
@@ -484,13 +475,12 @@ export async function branchInfoFromDB(id_user) {
     email: {},
     open_hours: {},
   };
-console.log(id_user);
+
   try {
     const dataBranchInfoDB = await pool.query(
       "SELECT * FROM branches WHERE id_users = $1",
       [id_user]
     );
-    console.log(dataBranchInfoDB.rows[0]);
     if (dataBranchInfoDB.rows.length > 0)  {
       dataBranchInfo.id = dataBranchInfoDB.rows[0].id;
       dataBranchInfo.name = dataBranchInfoDB.rows[0].name;
@@ -501,7 +491,6 @@ console.log(id_user);
       dataBranchInfo.email = dataBranchInfoDB.rows[0].email;
       dataBranchInfo.open_hours = dataBranchInfoDB.rows[0].open_hours;
     }     
-    console.log(dataBranchInfo.open_hours);
     return dataBranchInfo;  
     
   } catch (err) {

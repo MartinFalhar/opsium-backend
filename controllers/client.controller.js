@@ -42,16 +42,11 @@ export async function createClient(req, res) {
 
 export async function saveExamination(req, res) {
   try {
-    const userExists = await existClient(req.body);
-
-    //Pokud je uživatel nalezen, vrátíme chybu
-    if (userExists) {
-      console.log("Klient již existuje.");
-      return res.status(400).send("Klient již existuje.");
-    }
+    // console.log("BCKD saveExamination called with:", req.body);
 
     //Nový uživatel neexistuje, pokračujeme v registraci
-    await insertNewClient(req.body);
+    const examSave = await saveExaminationToDB(req.body);
+    res.json(examSave);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");
