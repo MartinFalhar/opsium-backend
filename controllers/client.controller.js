@@ -3,6 +3,7 @@ import {
   insertNewClient,
   existClient,
   saveExaminationToDB,
+  loadExamsFromDB,
 } from "../models/client.model.js";
 
 export async function loadClients(req, res) {
@@ -47,6 +48,16 @@ export async function saveExamination(req, res) {
     //Nový uživatel neexistuje, pokračujeme v registraci
     const examSave = await saveExaminationToDB(req.body);
     res.json(examSave);
+  } catch (error) {
+    console.error("Chyba při registraci klienta:", error);
+    res.status(500).send("Nastala chyba při registraci klienta.");
+  }
+}
+
+export async function loadExamsList(req, res) {
+  try {
+    const examsList = await loadExamsFromDB(req.body);
+    res.json(examsList);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");

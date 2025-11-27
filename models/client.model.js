@@ -75,20 +75,20 @@ export async function saveExaminationToDB(newExamDataSet) {
     } = newExamDataSet || {};
 
     //Existuje-li záznam s daným jménem pro tohoto klienta, většinou se jedná o aktualizaci
-    
+
     const existingExamination = await pool.query(
       "SELECT id FROM examinations WHERE id_clients = $1 AND name = $2",
       [id_clients, name]
     );
-    
+
     await pool.query("BEGIN");
-    
+
     if (existingExamination.rows.length > 0) {
       // Update existing record
-      await pool.query(
-        "UPDATE examinations SET data = $1 WHERE id = $2",
-        [data, existingExamination.rows[0].id]
-      );
+      await pool.query("UPDATE examinations SET data = $1 WHERE id = $2", [
+        data,
+        existingExamination.rows[0].id,
+      ]);
       await pool.query("COMMIT");
       return existingExamination.rows[0].id;
     }
@@ -97,12 +97,35 @@ export async function saveExaminationToDB(newExamDataSet) {
     const saveExamination = await pool.query(
       "INSERT INTO examinations (id_clients, id_branches, id_members, name, data) VALUES ($1, $2, $3, $4, $5) RETURNING id",
       [id_clients, id_branches, id_members, name, data]
-    ); 
-
+    );
 
     await pool.query("COMMIT");
     console.log("BCKD Saved Examination ID:", saveExamination.rows[0].id);
     return saveExamination.rows[0].id;
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    throw err;
+  }
+}
+
+export async function loadExamsFromDB(loadInfo) {
+  try {
+    const { id_clients, id_branches } = loadInfo || {};
+    console.log(
+      "BCKD MODUL loadExamsList called with:",
+      id_clients,
+      id_branches
+    );
+    await pool.query("BEGIN");
+
+    const examsList = await pool.query(
+      "SELECT name FROM examinations  WHERE id_clients = $1 AND id_branches = $2",
+      [id_clients, id_branches]
+    );
+
+    await pool.query("COMMIT");
+    console.log("BCKD Loaded Exams List:", examsList.rows);
+    return examsList.rows;
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;
