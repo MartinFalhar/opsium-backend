@@ -119,7 +119,7 @@ export async function loadExamsFromDB(loadInfo) {
     await pool.query("BEGIN");
 
     const examsList = await pool.query(
-      "SELECT name FROM examinations  WHERE id_clients = $1 AND id_branches = $2",
+      "SELECT name FROM examinations  WHERE id_clients = $1 AND id_branches = $2 ORDER BY name DESC",
       [id_clients, id_branches]
     );
 
