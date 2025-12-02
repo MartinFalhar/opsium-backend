@@ -108,7 +108,7 @@ export async function saveExaminationToDB(newExamDataSet) {
   }
 }
 
-export async function loadExamsFromDB(loadInfo) {
+export async function loadExamsListFromDB(loadInfo) {
   try {
     const { id_clients, id_branches } = loadInfo || {};
     console.log(
@@ -126,6 +126,31 @@ export async function loadExamsFromDB(loadInfo) {
     await pool.query("COMMIT");
     console.log("BCKD Loaded Exams List:", examsList.rows);
     return examsList.rows;
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    throw err;
+  }
+}
+
+export async function loadExaminationFromDB(loadInfo) {
+  try {
+    const { id_clients, id_branches, id_name } = loadInfo || {};
+    console.log(
+      "BCKD MODUL loadExamination called with:",
+      id_clients,
+      id_branches,
+      id_name
+    );
+    await pool.query("BEGIN");
+
+    const examination = await pool.query(
+      "SELECT data FROM examinations  WHERE id_clients = $1 AND id_branches = $2 AND name = $3",
+      [id_clients, id_branches, id_name]
+    );
+
+    await pool.query("COMMIT");
+    console.log("BCKD Loaded Examination", examination.rows);
+    return examination.rows;
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;
