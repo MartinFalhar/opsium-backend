@@ -149,8 +149,8 @@ export async function loadExaminationFromDB(loadInfo) {
     );
 
     await pool.query("COMMIT");
-    console.log("BCKD Loaded Examination", examination.rows);
-    return examination.rows;
+    console.log("BCKD Loaded Examination", examination.rows[0]);
+    return examination.rows[0];
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;

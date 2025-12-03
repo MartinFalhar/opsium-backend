@@ -67,8 +67,8 @@ export async function loadExamsList(req, res) {
 
 export async function loadExamination(req, res) {
   try {
-    const examsList = await loadExaminationFromDB(req.body);
-    res.json(examsList);
+    const examination = await loadExaminationFromDB(req.body);
+    res.json(examination);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");
