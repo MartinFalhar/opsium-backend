@@ -1,13 +1,12 @@
 import { searchForCLFromDB } from "../models/catalog.model.js";
+import { searchForLensFromDB } from "../models/catalog.model.js";
 
 
 export async function searchForCL(req, res) {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  const offset = (page - 1) * limit;
+
 
   try {
-    const result = await searchForCLFromDB(req.body, limit, offset, page);
+    const result = await searchForCLFromDB(req.body);
 
     if (result) {
       res.json(result);
@@ -19,3 +18,21 @@ export async function searchForCL(req, res) {
     res.json({ success: false, message: "Chyba serveru" });
   }
 }
+
+
+
+export async function searchForLens(req, res) {
+
+  try {
+    const result = await searchForLensFromDB(req.body);
+
+    if (result) {
+      res.json(result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání brýlových čoček z katalogu." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+} 

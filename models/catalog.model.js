@@ -1,31 +1,48 @@
+import e from "express";
 import pool from "../db/index.js";
 
 export async function searchForCLFromDB(body, limit, offset, page) {
-  const likePattern = body.searchText ? `%${body.searchText}%` : `%`;
+ 
   try {
     //hledání řetězce
     const { rows: items } = await pool.query(
-      "SELECT * FROM catalog_cl LIMIT $1 OFFSET $2",
-      [limit, offset]
+      "SELECT * FROM catalog_cl"
     );
     //zjišťování velikosti
     const { rows } = await pool.query(
       "SELECT COUNT(*)::int AS total FROM catalog_cl",    
     );
     const totalCount = rows[0]?.total ?? 0;
-    const totalPages = Math.ceil(totalCount / limit);
     return {
       items,
       totalCount,
-      totalPages,
-      page,
-    };
+      };
   } catch (err) {
     console.error("Chyba při načítání CL z katalogu:", err);
     throw err;
   }
 }
 
+export async function searchForLensFromDB(body, limit, offset, page) {
+    try {
+    //hledání řetězce
+    const { rows: items } = await pool.query(
+      "SELECT * FROM catalog_lens"
+    );
+    //zjišťování velikosti
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS total FROM catalog_lens",    
+    );
+    const totalCount = rows[0]?.total ?? 0;
+    return {
+      items,
+      totalCount,
+      };
+  } catch (err) {
+    console.error("Chyba při načítání brýlových čoček z katalogu:", err);
+    throw err;
+  }
+}
 
 export async function invoicesListFromDB(body) {
   try {
