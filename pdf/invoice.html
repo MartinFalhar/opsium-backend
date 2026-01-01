@@ -1,0 +1,39 @@
+<!-- Tohle není webová schránka, tohle je tiskový dokument -->
+
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>Faktura</title>
+  <link rel="stylesheet" href="invoice.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>FAKTURA</h1>
+    <div>
+      <p>Číslo: {{number}}</p>
+      <p>Datum: {{date}}</p>
+    </div>
+  </header>
+
+  <section>
+    <p>Zákazník: {{customer}}</p>
+  </section>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Položka</th>
+        <th>Cena</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{items}}
+    </tbody>
+  </table>
+
+  <footer>
+    <p>Poznámka: {{note}}</p>
+  </footer>
+</body>
+</html>

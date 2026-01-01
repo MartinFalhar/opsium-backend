@@ -1,13 +1,21 @@
 import express from "express";
+import cors from "cors";
+import path from "path";
+import fs from "fs";
+import puppeteer from "puppeteer";
+import bodyParser from "body-parser";
+
+// Import route modules
 import adminRoutes from "./routes/admin.routes.js";
 import optotypRoutes from "./routes/optotyp.routes.js";
 import pageRoutes from "./routes/page.routes.js";
 import clientRoutes from "./routes/client.routes.js";
 import catalogRoutes from "./routes/catalog.routes.js";
 import storeRoutes from "./routes/store.routes.js";
-import bodyParser from "body-parser";
-import cors from "cors";
-import path from "path";
+import emailRoutes from "./routes/email.routes.js";
+import smsRoutes from "./routes/sms.routes.js";
+import pdfRoutes from "./routes/pdf.routes.js";
+
 
 const app = express();
 
@@ -50,6 +58,9 @@ app.use("/catalog", catalogRoutes);
 app.use("/client", clientRoutes);
 app.use("/store", storeRoutes);
 app.use("/optotype", optotypRoutes);
+app.use("/email", emailRoutes);
+app.use("/sms", smsRoutes);
+app.use("/pdf", pdfRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
