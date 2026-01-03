@@ -12,6 +12,8 @@ import pageRoutes from "./routes/page.routes.js";
 import clientRoutes from "./routes/client.routes.js";
 import catalogRoutes from "./routes/catalog.routes.js";
 import storeRoutes from "./routes/store.routes.js";
+import agendaRoutes from "./routes/agenda.routes.js";
+
 import emailRoutes from "./routes/email.routes.js";
 import smsRoutes from "./routes/sms.routes.js";
 import pdfRoutes from "./routes/pdf.routes.js";
@@ -61,6 +63,7 @@ app.use("/optotype", optotypRoutes);
 app.use("/email", emailRoutes);
 app.use("/sms", smsRoutes);
 app.use("/pdf", pdfRoutes);
+app.use("/agenda", agendaRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

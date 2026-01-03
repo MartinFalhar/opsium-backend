@@ -1,11 +1,14 @@
 import express from "express";
-import { sendEmail } from "../controllers/email.controller.js";
+import { searchContacts } from "../controllers/agenda.controller.js";
+
 
 const router = express.Router();
 
 // router.post("/create_client", createClient);
 
-router.post("/send", sendEmail);
+router.post("/contacts-search", searchContacts);
+
+
 
 
 export default router;
