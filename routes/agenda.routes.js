@@ -1,9 +1,10 @@
 import express from "express";
-import { searchContacts } from "../controllers/agenda.controller.js";
-import { searchVatCurrent } from "../controllers/agenda.controller.js";
-import { searchVatAtDate } from "../controllers/agenda.controller.js";
-
-
+import {
+  searchContacts,
+  searchForServices,
+  searchVatCurrent,
+  searchVatAtDate,
+} from "../controllers/agenda.controller.js";
 
 const router = express.Router();
 
@@ -15,9 +16,6 @@ router.get("/vat/current", searchVatCurrent);
 
 router.get("/vat", searchVatAtDate);
 
-
-
-
-
+router.post("/services-search", searchForServices);
 
 export default router;

@@ -1,13 +1,8 @@
 import { searchForCLFromDB } from "../models/catalog.model.js";
 import { searchForLensFromDB } from "../models/catalog.model.js";
 import { searchForSoldropsFromDB } from "../models/catalog.model.js";
-import { searchForServicesFromDB } from "../models/catalog.model.js";
-
-
 
 export async function searchForCL(req, res) {
-
-
   try {
     const result = await searchForCLFromDB(req.body);
 
@@ -50,22 +45,6 @@ console.log("searchForSoldrops - req.body:", req.body);
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při nahrávání roztoků a kapek z katalogu." });
-    }
-  } catch (error) {
-    res.json({ success: false, message: "Chyba serveru" });
-  }
-} 
-
-export async function searchForServices(req, res) {
-
-  try {
-    const result = await searchForServicesFromDB(req.body);
-
-    if (result) {
-      res.json(result);
-      // message: "Nahrání proběhlo v pořádku"
-    } else {
-      res.json({ message: "Selhání při nahrávání služeb z katalogu." });
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });

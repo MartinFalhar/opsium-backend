@@ -1,9 +1,9 @@
 import pool from "../db/index.js";
 
 export async function searchContactsFromDB(body) {
-        console.log("Searching contacts with:", body.value);
-      console.log("User organization ID:", body.id_organizations);
-  try {    
+  console.log("Searching contacts with:", body.value);
+  console.log("User organization ID:", body.id_organizations);
+  try {
     const result = await pool.query(
       "SELECT * FROM contacts WHERE $1 = id_organizations AND contacts::text ILIKE '%' || $2 || '%';",
       [body.id_organizations, body.value]
@@ -22,31 +22,47 @@ export async function searchContactsFromDB(body) {
 export async function getVatCurrent() {
   console.log("Fetching current VAT rate");
   try {
-    const result = await pool.query("SELECT * FROM vat_rates WHERE valid_from <= CURRENT_DATE AND (valid_to IS NULL OR valid_to >= CURRENT_DATE);");
+    const result = await pool.query(
+      "SELECT * FROM vat_rates WHERE valid_from <= CURRENT_DATE AND (valid_to IS NULL OR valid_to >= CURRENT_DATE);"
+    );
     if (result.rows.length > 0) {
       console.log("VAT query result:", result.rows);
-      return result.rows; 
+      return result.rows;
     } else {
-      return null; 
+      return null;
     }
   } catch (err) {
     console.error("Chyba při načítání aktuální sazby DPH:", err);
     throw err;
   }
-} 
+}
 
 export async function getVatAtDate(date) {
-  console.log("Fetching VAT rate at date:", date);
   try {
-    const result = await pool.query("SELECT * FROM vat_rates WHERE valid_from <= $1 AND (valid_to IS NULL OR valid_to >= $1);", [date]);
+    const result = await pool.query(
+      "SELECT * FROM vat_rates WHERE valid_from <= $1 AND (valid_to IS NULL OR valid_to >= $1);",
+      [date]
+    );
     if (result.rows.length > 0) {
-      console.log("VAT query result:", result.rows);
-      return result.rows; 
+      return result.rows;
     } else {
-      return null; 
+      return null;
     }
   } catch (err) {
     console.error("Chyba při načítání sazby DPH k datu:", err);
     throw err;
   }
 }
+
+export async function searchForServicesFromDB(body) {
+     console.log("Searching services in agenda catalog...");
+  try {
+    //hledání řetězce
+    const { rows: items } = await pool.query("SELECT * FROM agenda_services WHERE id_branches = $1;", [body.id_branch]);
+    return items;
+  } catch (err) {
+    console.error("Chyba při načítání služeb z katalogu:", err);
+    throw err;
+  }
+}
+

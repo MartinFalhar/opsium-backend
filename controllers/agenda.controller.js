@@ -1,6 +1,8 @@
 import { searchContactsFromDB } from "../models/agenda.model.js";
 import { getVatCurrent } from "../models/agenda.model.js";
 import { getVatAtDate } from "../models/agenda.model.js";
+import { searchForServicesFromDB } from "../models/agenda.model.js";
+
 
 export async function searchContacts(req, res) {
   try {
@@ -37,3 +39,20 @@ export async function searchVatAtDate(req, res) {
     res.json({ success: false, message: "Chyba serveru při načítání DPH" });
   }
 }
+
+export async function searchForServices(req, res) {
+
+  try {
+    const result = await searchForServicesFromDB(req.body);
+
+    if (result) {
+      res.json(result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání služeb z katalogu." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+} 
+

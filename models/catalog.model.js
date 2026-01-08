@@ -88,14 +88,3 @@ export async function searchForSoldropsFromDB(body) {
   }
 }
 
-export async function searchForServicesFromDB(body) {
-  try {
-    //hledání řetězce
-    const { rows: items } = await pool.query("SELECT * FROM catalog_services");
-
-    return items;
-  } catch (err) {
-    console.error("Chyba při načítání služeb z katalogu:", err);
-    throw err;
-  }
-}
