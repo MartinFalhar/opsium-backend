@@ -58,7 +58,20 @@ export async function searchForServicesFromDB(body) {
      console.log("Searching services in agenda catalog...");
   try {
     //hledání řetězce
-    const { rows: items } = await pool.query("SELECT * FROM agenda_services WHERE id_branches = $1;", [body.id_branch]);
+    const { rows: items } = await pool.query("SELECT * FROM agenda_services WHERE id_branches = $1 ORDER BY plu;", [body.id_branch]);
+    return items;
+  } catch (err) {
+    console.error("Chyba při načítání služeb z katalogu:", err);
+    throw err;
+  }
+}
+
+export async function updateServicesInDB(body) {
+     console.log("UPDATING services in agenda catalog...");
+     console.log("Data to update:", body);
+  try {
+    //hledání řetězce
+    const { rows: items } = await pool.query("UPDATE agenda_services SET plu = $1, name = $2, amount = $3, uom = $4, price = $5, vat_type = $6, note = $7, category = $8, id_branches = $9, updated_at = NOW() WHERE id = $10 AND id_branches = $9;", [body.plu, body.name, body.amount, body.uom, body.price, body.vat_type, body.note, body.category, body.id_branch, body.id]);
     return items;
   } catch (err) {
     console.error("Chyba při načítání služeb z katalogu:", err);

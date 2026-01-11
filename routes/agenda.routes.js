@@ -4,6 +4,7 @@ import {
   searchForServices,
   searchVatCurrent,
   searchVatAtDate,
+  updateServices,
 } from "../controllers/agenda.controller.js";
 
 const router = express.Router();
@@ -17,5 +18,7 @@ router.get("/vat/current", searchVatCurrent);
 router.get("/vat", searchVatAtDate);
 
 router.post("/services-search", searchForServices);
+
+router.post("/services-update", updateServices);
 
 export default router;

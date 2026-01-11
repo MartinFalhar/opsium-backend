@@ -2,7 +2,7 @@ import { searchContactsFromDB } from "../models/agenda.model.js";
 import { getVatCurrent } from "../models/agenda.model.js";
 import { getVatAtDate } from "../models/agenda.model.js";
 import { searchForServicesFromDB } from "../models/agenda.model.js";
-
+import { updateServicesInDB } from "../models/agenda.model.js";
 
 export async function searchContacts(req, res) {
   try {
@@ -50,6 +50,22 @@ export async function searchForServices(req, res) {
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při nahrávání služeb z katalogu." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+} 
+
+export async function updateServices(req, res) {
+  try {
+    const result = await updateServicesInDB(req.body.changedItem);
+
+    if (result) {
+      res.json(result);
+      console.log("Services updated in controller:", result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při změně služeb v katalogu." });
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });
