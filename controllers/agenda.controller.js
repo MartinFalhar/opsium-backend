@@ -3,6 +3,7 @@ import { getVatCurrent } from "../models/agenda.model.js";
 import { getVatAtDate } from "../models/agenda.model.js";
 import { searchForServicesFromDB } from "../models/agenda.model.js";
 import { updateServicesInDB } from "../models/agenda.model.js";
+import { deleteServicesInDB } from "../models/agenda.model.js";
 
 export async function searchContacts(req, res) {
   try {
@@ -57,6 +58,7 @@ export async function searchForServices(req, res) {
 } 
 
 export async function updateServices(req, res) {
+  console.log("Received request to update services:", req.body.changedItem.plu);
   try {
     const result = await updateServicesInDB(req.body.changedItem);
 
@@ -72,3 +74,19 @@ export async function updateServices(req, res) {
   }
 } 
 
+export async function deleteServices(req, res) {
+  console.log("Received request to delete service:", req.body.id);
+ try {
+    const result = await deleteServicesInDB(req.body.id, req.body.id_branch);
+
+    if (result) {
+      res.json(result);
+      console.log("Services deleted in controller:", result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při změně služeb v katalogu." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+} 
