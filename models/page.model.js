@@ -12,16 +12,22 @@ const saltRounds = 10;
 // Kontrola přihlášení uživatele
 export async function login(email, password) {
   try {
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
-      email,
-    ]);
+    // Načteme uživatele a jeho pobočku pomocí JOIN
+    const result = await pool.query(
+      `SELECT u.*, b.id as id_branch 
+       FROM users u 
+       LEFT JOIN branches b ON u.id = b.id_users 
+       WHERE u.email = $1`,
+      [email]
+    );
+    
     if (result.rows.length > 0) {
       const storedUser = result.rows[0];
-
+      console.log("Stored user fetched for login:", storedUser);
       const storedPassword = storedUser.password;
       const match = await bcrypt.compare(password, storedPassword);
 
-      return match ? storedUser : false; // vrací uživatele, pokud je heslo správné
+      return match ? storedUser : false; // vrací uživatele včetně id_branch, pokud je heslo správné
     } else {
       return false;
     }

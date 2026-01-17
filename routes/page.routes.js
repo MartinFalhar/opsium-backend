@@ -13,7 +13,6 @@ router.get("/hero_img/:id", heroImg);
 
 router.post("/hero_img_info", heroImgInfo);
 
-
 router.post("/login", loginUser);
 
 //BACKEND routes

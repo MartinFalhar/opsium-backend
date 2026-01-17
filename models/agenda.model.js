@@ -20,13 +20,13 @@ export async function searchContactsFromDB(body) {
 }
 
 export async function getVatCurrent() {
-  console.log("Fetching current VAT rate");
+
   try {
     const result = await pool.query(
       "SELECT * FROM vat_rates WHERE valid_from <= CURRENT_DATE AND (valid_to IS NULL OR valid_to >= CURRENT_DATE);"
     );
     if (result.rows.length > 0) {
-      console.log("VAT query result:", result.rows);
+
       return result.rows;
     } else {
       return null;
@@ -55,7 +55,7 @@ export async function getVatAtDate(date) {
 }
 
 export async function searchForServicesFromDB(body) {
-     console.log("Searching services in agenda catalog...");
+
   try {
     //hledání řetězce
     const { rows: items } = await pool.query("SELECT * FROM agenda_services WHERE id_branches = $1 ORDER BY plu;", [body.id_branch]);

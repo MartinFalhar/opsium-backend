@@ -23,7 +23,7 @@ export async function searchVatCurrent(req, res) {
 
   try {
     const vat = await getVatCurrent();
-    console.log("VAT fetched in controller:", vat);    
+
     res.json(vat);
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru při načítání DPH" });
@@ -34,7 +34,7 @@ export async function searchVatAtDate(req, res) {
 
   try {
     const vat = await getVatAtDate(req.query.date);
-    console.log("VAT fetched in controller:", vat);    
+ 
     res.json(vat);
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru při načítání DPH" });
@@ -44,7 +44,8 @@ export async function searchVatAtDate(req, res) {
 export async function searchForServices(req, res) {
 
   try {
-    const result = await searchForServicesFromDB(req.body);
+    // Přidáme id_branch z JWT tokenu
+    const result = await searchForServicesFromDB({ id_branch: req.user.id_branch });
 
     if (result) {
       res.json(result);
@@ -60,7 +61,8 @@ export async function searchForServices(req, res) {
 export async function updateServices(req, res) {
   console.log("Received request to update services:", req.body.changedItem.plu);
   try {
-    const result = await updateServicesInDB(req.body.changedItem);
+    // Přidáme id_branch z JWT tokenu
+    const result = await updateServicesInDB({ ...req.body.changedItem, id_branch: req.user.id_branch });
 
     if (result) {
       res.json(result);
@@ -77,7 +79,8 @@ export async function updateServices(req, res) {
 export async function deleteServices(req, res) {
   console.log("Received request to delete service:", req.body.id);
  try {
-    const result = await deleteServicesInDB(req.body.id, req.body.id_branch);
+    // id_branch nyní bereme z JWT tokenu
+    const result = await deleteServicesInDB(req.body.id, req.user.id_branch);
 
     if (result) {
       res.json(result);

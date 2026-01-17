@@ -1,20 +1,35 @@
 import pool from "../db/index.js";
 
-export async function searchInStoreFromDB(body, limit, offset, page) {
-  const likePattern = body.searchText ? `%${body.searchText}%` : `%`;
+export async function searchInStoreFromDB(table, query, id_branch, limit, offset, page) {
+  const likePattern = query ? `%${query}%` : `%`;
+  
+  // Dynamický SQL dotaz - PostgreSQL neumožňuje parametrizaci názvu tabulky,
+  // ale table je kontrolováno v kontroleru (pouze 'store_frames' nebo 'store_lens')
+  const tableName = table === 'store_frames' ? 'store_frames' : 'store_lens';
+  
   try {
-    //hledání řetězce
+    // Hledání řetězce ve všech sloupcích pomocí CAST na text
+    // Převedeme celý řádek na text a hledáme v něm
     const { rows: items } = await pool.query(
-      "SELECT * FROM store_frames WHERE collection ILIKE $1 ORDER BY ean DESC LIMIT $2 OFFSET $3",
-      [likePattern, limit, offset]
+      `SELECT * FROM ${tableName} 
+       WHERE CAST(ROW(${tableName}.*) AS TEXT) ILIKE $1 
+       AND id_branch = $2 
+       ORDER BY plu DESC 
+       LIMIT $3 OFFSET $4`,
+      [likePattern, id_branch, limit, offset]
     );
-    //zjišťování velikosti
+    
+    // Zjišťování celkového počtu záznamů
     const { rows } = await pool.query(
-      "SELECT COUNT(*)::int AS total FROM store_frames WHERE collection ILIKE $1",
-      [likePattern]
+      `SELECT COUNT(*)::int AS total FROM ${tableName} 
+       WHERE CAST(ROW(${tableName}.*) AS TEXT) ILIKE $1 
+       AND id_branch = $2`,
+      [likePattern, id_branch]
     );
+    
     const totalCount = rows[0]?.total ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
+    
     return {
       items,
       totalCount,
@@ -81,12 +96,12 @@ export async function newTransactionInsertToDB(transaction) {
   }
 }
 
-export async function ordersListFromDB(body) {
+export async function ordersListFromDB(id_branch) {
   try {
     const result = await pool.query(
       "SELECT * FROM orders WHERE id_branch = $1",
-      [body.id_branch]
-    ); // Add filtering based on body if needed
+      [id_branch]
+    );
     if (result.rows.length > 0) {
       return result.rows;
     } else {

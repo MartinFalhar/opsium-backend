@@ -3,6 +3,7 @@ import { login, heroImgInfoFromDB } from "../models/page.model.js";
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
 import path from "path";
+import jwt from "jsonwebtoken";
 
 export async function indexPage(req, res) {
   try {
@@ -25,8 +26,25 @@ export async function loginUser(req, res) {
   try {
     const loginProceed = await login(req.body.email, req.body.password);
     if (loginProceed.id > 0) {
-      // vracíme uživatele, pokud je přihlášení úspěšné
-      res.json(loginProceed);
+      // Vytvoříme JWT token s údaji uživatele včetně id_branch
+
+      const token = jwt.sign(
+        {
+          id: loginProceed.id,
+          email: loginProceed.email,
+          id_branch: loginProceed.id_branch, // Změněno z id_branches na id_branch
+          id_organization: loginProceed.id_organizations,
+          rights: loginProceed.rights
+        },
+        process.env.JWT_SECRET || 'your-secret-key-change-in-production', // použijte silný klíč v .env
+        { expiresIn: '8h' } // token vyprší za 8 hodin
+      );
+
+      // vracíme token a uživatelská data
+      res.json({
+        ...loginProceed,
+        token // přidáváme token do odpovědi
+      });
     } else {
       res.json({ success: false, message: "Přihlášení NEúspěšné" });
     }
