@@ -1,17 +1,19 @@
 import { searchInStoreFromDB } from "../models/store.model.js";
+import { updateIteminDB } from "../models/store.model.js";
 import { newOrderInsertToDB } from "../models/store.model.js";
 import { newTransactionInsertToDB } from "../models/store.model.js";
 import { ordersListFromDB } from "../models/store.model.js";
+import { getContactsListFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
+  // id_branch bereme z JWT tokenu
+  const id_branch = req.user.id_branch;
+
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
   const query = req.query.value || "";
   const table = req.query.store === "1" ? "store_frames" : "store_lens";
-
-  // id_branch bereme z JWT tokenu
-  const id_branch = req.user.id_branch;
 
   try {
     const result = await searchInStoreFromDB(
@@ -21,6 +23,52 @@ export async function searchInStore(req, res) {
       limit,
       offset,
       page,
+    );
+    if (result) {
+      res.json(result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání položek ze skladu." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function searchInContacts(req, res) {
+  // id_branch bereme z JWT tokenu
+  const id_organization = req.user.id_organization;
+  const query = req.query.field || "";
+  try {
+    const result = await getContactsListFromDB(
+      id_organization,
+      query,
+    );
+    if (result) {
+      res.json(result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při vytváření seznamu z kontaktů." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function updateInStore(req, res) {
+  // id_branch bereme z JWT tokenu
+  const id_branch = req.user.id_branch;
+
+  const id_organization = req.user.id_organization;
+  const table = req.body.storeId;
+  const updatedItem = req.body.values;
+
+  try {
+    const result = await updateIteminDB(
+      updatedItem,
+      table,
+      id_branch,
+      id_organization,
     );
     if (result) {
       res.json(result);

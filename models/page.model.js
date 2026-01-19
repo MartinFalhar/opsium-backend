@@ -22,8 +22,7 @@ export async function login(email, password) {
     );
     
     if (result.rows.length > 0) {
-      const storedUser = result.rows[0];
-      console.log("Stored user fetched for login:", storedUser);
+      const storedUser = result.rows[0];      
       const storedPassword = storedUser.password;
       const match = await bcrypt.compare(password, storedPassword);
 
