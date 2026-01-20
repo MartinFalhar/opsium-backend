@@ -14,37 +14,30 @@ export async function updateIteminDB(
   console.log("Updating item in table:", updatedItem.id_supplier);
 
   if (table === 1 && updatedItem.plu !== "") {
-    commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, quantity = $4, price = $5, gender = $6, material = $7, type = $8, id_supplier = $9 WHERE plu = $10 AND id_branch = $11`;
+    commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, gender = $4, material = $5, type = $6 WHERE plu = $7 AND id_branch = $8`;
     values = [
       
-      updatedItem.collection,
-      updatedItem.product,
-      updatedItem.color,
-      updatedItem.quantity,
-      updatedItem.price,
-      updatedItem.gender,
-      updatedItem.material,
-      updatedItem.type,
-      updatedItem.id_supplier,
-      updatedItem.plu,
-      id_branch,
+      updatedItem.collection,  // $1
+      updatedItem.product,    // $2
+      updatedItem.color,     // $3
+      updatedItem.gender,   // $4
+      updatedItem.material, // $5
+      updatedItem.type,   // $6
+      updatedItem.plu,      // $7
+      id_branch,        // $8 
     ];
   }
 
   if (table === 1 && updatedItem.plu === "") {
-    commandSQL = `INSERT INTO store_frames (id_organization, id_branch, collection, product, color, quantity, price, gender, material, type, id_supplier, plu, created_at, updated_at) SELECT $11, $10, $1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE(MAX(plu), 0) + 1, NOW(), NOW() FROM store_frames WHERE id_branch = $10`;
+    commandSQL = `INSERT INTO store_frames (id_organization, id_branch, collection, product, color, gender, material, type, plu, created_at, updated_at) SELECT $8, $7, $1, $2, $3, $4, $5, $6, COALESCE(MAX(plu), 0) + 1, NOW(), NOW() FROM store_frames WHERE id_branch = $7`;
     values = [
       updatedItem.collection, // $1
       updatedItem.product, // $2
       updatedItem.color, // $3
-      Number(updatedItem.quantity), // $4
-      Number(updatedItem.price), // $5
-      updatedItem.gender, // $6
-      updatedItem.material, // $7
-      updatedItem.type, // $8
-      updatedItem.id_supplier, // $9
-      id_branch, // $10
-      id_organization, // $11
+      updatedItem.gender, // $4
+      updatedItem.material, // $5
+      updatedItem.type, // $6
+      id_branch, // $7
     ];
   }
 
