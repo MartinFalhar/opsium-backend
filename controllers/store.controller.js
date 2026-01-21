@@ -4,6 +4,7 @@ import { newOrderInsertToDB } from "../models/store.model.js";
 import { newTransactionInsertToDB } from "../models/store.model.js";
 import { ordersListFromDB } from "../models/store.model.js";
 import { getContactsListFromDB } from "../models/store.model.js";
+import { putInStoreDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // id_branch bereme z JWT tokenu
@@ -40,15 +41,45 @@ export async function searchInContacts(req, res) {
   const id_organization = req.user.id_organization;
   const query = req.query.field || "";
   try {
-    const result = await getContactsListFromDB(
-      id_organization,
-      query,
-    );
+    const result = await getContactsListFromDB(id_organization, query);
     if (result) {
       res.json(result);
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při vytváření seznamu z kontaktů." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function putInStore(req, res) {
+  // id_branch bereme z JWT tokenu
+  const id_store_item = req.body.id_store_item;
+  const id_branch = req.user.id_branch;
+  const delivery_note = req.body.delivery_note;
+  const plu = req.body.plu;
+  const id_supplier = req.body.supplier;
+  const quantity = req.body.quantity;
+  const price_buy = req.body.price_buy;
+  const date = req.body.date;
+
+  try {
+    const result = await putInStoreDB(
+      id_store_item,
+      id_branch,
+      plu,
+      id_supplier,
+      delivery_note,
+      quantity,
+      price_buy,
+      date,
+    );
+    if (result) {
+      res.json(result);
+      // message: "Nahrání proběhlo v pořádku"
+    } else {
+      res.json({ message: "Selhání při nahrávání položek ze skladu." });
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });

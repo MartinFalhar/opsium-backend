@@ -1,12 +1,66 @@
 import pool from "../db/index.js";
 
+export async function putInStoreDB(
+  id_store_item,
+  id_branch,
+  plu,
+  id_supplier,
+  delivery_note,
+  quantity,
+  price_buy,
+  date,
+) {
+  console.log("Updating item in table:", updatedItem.id_store_item);
+
+  const documentSQL =
+    "INSERT INTO store_documents (id_branch, id_supplier, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5)RETURNING id";
+  const documentValues = [
+    id_branch, // $1
+    id_supplier, // $2
+    "receipt", // $3
+    delivery_note, // $4
+    date, // $5
+  ];
+
+  const batchSQL = `INSERT INTO store_batches (store_documents_id, purchase_price, quantity_received, received_at, id_store_item) VALUES ($1, $2, $3, $4, $5)`;
+
+  try {
+    await pool.query("BEGIN");
+
+    // Vkládání záznamu do store_documents
+    // Záznam číslo dodacího listu
+    const result = await pool.query(documentSQL, documentValues);
+
+    const id_document = result.rows[0].id;
+
+    const batchValues = [
+      id_document, // $1
+      price_buy, // $2
+      quantity, // $3
+      date, // $4
+      id_store_item, // $5
+    ];
+
+    console.log("Document inserted with ID:", id_document);
+
+    // Vytváření záznamu ve store_batches
+    const batchResult = await pool.query(batchSQL, batchValues);
+
+    await pool.query("COMMIT");
+    return result.rows;
+  } catch (err) {
+    console.error(`Chyba při vkládání ITEMS v ${tableName}:`, err);
+    await pool.query("ROLLBACK");
+    throw err;
+  }
+}
+
 export async function updateIteminDB(
   updatedItem,
   table,
   id_branch,
   id_organization,
 ) {
-
   const tableName = table === 1 ? "store_frames" : "";
   let commandSQL = "";
   let values = [];
@@ -16,15 +70,14 @@ export async function updateIteminDB(
   if (table === 1 && updatedItem.plu !== "") {
     commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, gender = $4, material = $5, type = $6 WHERE plu = $7 AND id_branch = $8`;
     values = [
-      
-      updatedItem.collection,  // $1
-      updatedItem.product,    // $2
-      updatedItem.color,     // $3
-      updatedItem.gender,   // $4
+      updatedItem.collection, // $1
+      updatedItem.product, // $2
+      updatedItem.color, // $3
+      updatedItem.gender, // $4
       updatedItem.material, // $5
-      updatedItem.type,   // $6
-      updatedItem.plu,      // $7
-      id_branch,        // $8 
+      updatedItem.type, // $6
+      updatedItem.plu, // $7
+      id_branch, // $8
     ];
   }
 
