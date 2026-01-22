@@ -1,7 +1,6 @@
 import pool from "../db/index.js";
 
 export async function putInStoreDB(
-  id_store_item,
   id_branch,
   plu,
   id_supplier,
@@ -10,10 +9,12 @@ export async function putInStoreDB(
   price_buy,
   date,
 ) {
-  console.log("Updating item in table:", updatedItem.id_store_item);
 
+  // Najdi id_store_item podle PLU a id_branch
+  const findItemSQL = "SELECT id_store_item FROM store_frames WHERE plu = $1 AND id_branch = $2";
+  
   const documentSQL =
-    "INSERT INTO store_documents (id_branch, id_supplier, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5)RETURNING id";
+    "INSERT INTO store_documents (id_branch, id_supplier, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
   const documentValues = [
     id_branch, // $1
     id_supplier, // $2
@@ -22,34 +23,42 @@ export async function putInStoreDB(
     date, // $5
   ];
 
-  const batchSQL = `INSERT INTO store_batches (store_documents_id, purchase_price, quantity_received, received_at, id_store_item) VALUES ($1, $2, $3, $4, $5)`;
+  const batchSQL = `INSERT INTO store_batches (store_documents_id, purchase_price, quantity_received, id_store_item) VALUES ($1, $2, $3, $4)`;
 
   try {
     await pool.query("BEGIN");
 
-    // Vkládání záznamu do store_documents
-    // Záznam číslo dodacího listu
-    const result = await pool.query(documentSQL, documentValues);
+    // Najdi id_store_item podle PLU
+    const itemResult = await pool.query(findItemSQL, [plu, id_branch]);
+    
+    if (itemResult.rows.length === 0) {
+      await pool.query("ROLLBACK");
+      throw new Error(`Položka s PLU ${plu} nebyla nalezena`);
+    }
+    
+    const id_store_item = itemResult.rows[0].id_store_item;
 
-    const id_document = result.rows[0].id;
+    console.log("Found id_store_item:", id_store_item);
 
-    const batchValues = [
-      id_document, // $1
-      price_buy, // $2
-      quantity, // $3
-      date, // $4
-      id_store_item, // $5
-    ];
-
+    // Vkládání záznamu do store_documents (dodací list)
+    const docResult = await pool.query(documentSQL, documentValues);
+    const id_document = docResult.rows[0].id;
     console.log("Document inserted with ID:", id_document);
 
-    // Vytváření záznamu ve store_batches
-    const batchResult = await pool.query(batchSQL, batchValues);
+    // Vkládání záznamu do store_batches (šarže naskladnění)
+    const batchValues = [
+      id_document, // $1 - store_documents_id
+      price_buy, // $2 - purchase_price
+      quantity, // $3 - quantity_received
+      id_store_item, // $4 - id_store_item
+    ];
+    console.log("Batch inserted for id_store_item:", id_store_item);
+    await pool.query(batchSQL, batchValues);
 
     await pool.query("COMMIT");
-    return result.rows;
+    return { success: true, message: "Položka byla úspěšně naskladněna" };
   } catch (err) {
-    console.error(`Chyba při vkládání ITEMS v ${tableName}:`, err);
+    console.error("Chyba při naskladňování položky:", err);
     await pool.query("ROLLBACK");
     throw err;
   }
@@ -68,16 +77,17 @@ export async function updateIteminDB(
   console.log("Updating item in table:", updatedItem.id_supplier);
 
   if (table === 1 && updatedItem.plu !== "") {
-    commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, gender = $4, material = $5, type = $6 WHERE plu = $7 AND id_branch = $8`;
+    commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, price = $4, gender = $5, material = $6, type = $7 WHERE plu = $8 AND id_branch = $9`;
     values = [
       updatedItem.collection, // $1
       updatedItem.product, // $2
       updatedItem.color, // $3
-      updatedItem.gender, // $4
-      updatedItem.material, // $5
-      updatedItem.type, // $6
-      updatedItem.plu, // $7
-      id_branch, // $8
+      updatedItem.price, // $4
+      updatedItem.gender, // $5
+      updatedItem.material, // $6
+      updatedItem.type, // $7
+      updatedItem.plu, // $8
+      id_branch, // $9
     ];
   }
 

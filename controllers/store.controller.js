@@ -55,18 +55,26 @@ export async function searchInContacts(req, res) {
 
 export async function putInStore(req, res) {
   // id_branch bereme z JWT tokenu
-  const id_store_item = req.body.id_store_item;
   const id_branch = req.user.id_branch;
-  const delivery_note = req.body.delivery_note;
   const plu = req.body.plu;
-  const id_supplier = req.body.supplier;
+  const id_supplier = req.body.id_supplier;
+  const delivery_note = req.body.delivery_note;
   const quantity = req.body.quantity;
   const price_buy = req.body.price_buy;
   const date = req.body.date;
 
+  console.log("Controller - putInStore called with:", {
+    id_branch,
+    plu,
+    id_supplier,
+    delivery_note,
+    quantity,
+    price_buy,
+    date,
+  });
+
   try {
     const result = await putInStoreDB(
-      id_store_item,
       id_branch,
       plu,
       id_supplier,
