@@ -38,13 +38,10 @@ export async function putInStoreDB(
     
     const id_store_item = itemResult.rows[0].id_store_item;
 
-    console.log("Found id_store_item:", id_store_item);
-
     // Vkládání záznamu do store_documents (dodací list)
     const docResult = await pool.query(documentSQL, documentValues);
     const id_document = docResult.rows[0].id;
-    console.log("Document inserted with ID:", id_document);
-
+ 
     // Vkládání záznamu do store_batches (šarže naskladnění)
     const batchValues = [
       id_document, // $1 - store_documents_id
@@ -52,7 +49,7 @@ export async function putInStoreDB(
       quantity, // $3 - quantity_received
       id_store_item, // $4 - id_store_item
     ];
-    console.log("Batch inserted for id_store_item:", id_store_item);
+
     await pool.query(batchSQL, batchValues);
 
     await pool.query("COMMIT");
