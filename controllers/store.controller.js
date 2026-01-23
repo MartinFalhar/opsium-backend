@@ -102,13 +102,6 @@ export async function putInMultipleStore(req, res) {
   const items = req.body.items;
   const id_warehouse = req.body.storeId;
 
-  console.log("Controller - putInMultipleStore called with:", {
-    id_branch,
-    id_organization,
-    itemsCount: items ? Object.keys(items).length : 0,
-    id_warehouse,
-  });
-
   try {
     const result = await putInMultipleStoreDB(
       id_branch,
