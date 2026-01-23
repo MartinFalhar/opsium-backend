@@ -5,6 +5,7 @@ import { newTransactionInsertToDB } from "../models/store.model.js";
 import { ordersListFromDB } from "../models/store.model.js";
 import { getContactsListFromDB } from "../models/store.model.js";
 import { putInStoreDB } from "../models/store.model.js";
+import { putInMultipleStoreDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // id_branch bereme z JWT tokenu
@@ -91,6 +92,38 @@ export async function putInStore(req, res) {
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function putInMultipleStore(req, res) {
+  // id_branch bereme z JWT tokenu
+  const id_branch = req.user.id_branch;
+  const id_organization = req.user.id_organization;
+  const items = req.body.items;
+  const id_warehouse = req.body.storeId;
+
+  console.log("Controller - putInMultipleStore called with:", {
+    id_branch,
+    id_organization,
+    itemsCount: items ? Object.keys(items).length : 0,
+    id_warehouse,
+  });
+
+  try {
+    const result = await putInMultipleStoreDB(
+      id_branch,
+      id_organization,
+      items,
+      id_warehouse,
+    );
+    if (result) {
+      res.json(result);
+    } else {
+      res.json({ message: "Selhání při hromadném naskladnění položek." });
+    }
+  } catch (error) {
+    console.error("Error in putInMultipleStore:", error);
+    res.json({ success: false, message: error.message || "Chyba serveru" });
   }
 }
 

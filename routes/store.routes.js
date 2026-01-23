@@ -7,6 +7,7 @@ import { ordersList } from "../controllers/store.controller.js";
 import { newTransaction } from "../controllers/store.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 import { putInStore } from "../controllers/store.controller.js";
+import { putInMultipleStore } from "../controllers/store.controller.js";
 
 const router = express.Router();
 
@@ -19,6 +20,8 @@ router.get("/suppliers-list", authenticateToken, searchInContacts);
 router.post("/update", authenticateToken, updateInStore);
 
 router.post("/putin-stock", authenticateToken, putInStore);
+
+router.post("/putin-multiple", authenticateToken, putInMultipleStore);
 
 router.post("/new-order", authenticateToken, newOrder);
 
