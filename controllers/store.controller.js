@@ -15,11 +15,15 @@ export async function searchInStore(req, res) {
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
   const query = req.query.value || "";
-  const table = req.query.store === "1" ? "store_frames" : "store_lens";
-
+  const store = req.query.store ;
+ 
+  console.log("Controller - searchInStore called with:", {
+    store,
+    query,
+  });
   try {
     const result = await searchInStoreFromDB(
-      table,
+      store,
       query,
       id_branch,
       limit,
@@ -76,6 +80,7 @@ export async function putInStore(req, res) {
 
   try {
     const result = await putInStoreDB(
+      store,
       id_branch,
       plu,
       id_supplier,

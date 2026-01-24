@@ -1,6 +1,7 @@
 import pool from "../db/index.js";
 
 export async function putInStoreDB(
+  table,
   id_branch,
   plu,
   id_supplier,
@@ -9,9 +10,23 @@ export async function putInStoreDB(
   price_buy,
   date,
 ) {
+  const warehouseTableName =
+    table === 1
+      ? "store_frames"
+      : table === 2
+        ? "store_sunglasses"
+        : table === 3
+          ? "store_lens"
+          : table === 4
+            ? "store_cl"
+            : table === 5
+              ? "store_soldrops"
+              : table === 6
+                ? "store_goods"
+                : "";
+
   // Najdi id_store_item podle PLU a id_branch
-  const findItemSQL =
-    "SELECT id_store_item FROM store_frames WHERE plu = $1 AND id_branch = $2";
+  const findItemSQL = `SELECT id_store_item FROM ${warehouseTableName} WHERE plu = $1 AND id_branch = $2`;
 
   const documentSQL =
     "INSERT INTO store_documents (id_branch, id_supplier, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
@@ -70,6 +85,7 @@ export async function updateIteminDB(
   const tableName = table === 1 ? "store_frames" : "";
   let commandSQL = "";
   let values = [];
+  await pool.query("BEGIN");
 
   if (table === 1 && updatedItem.plu !== "") {
     commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, price = $4, gender = $5, material = $6, type = $7 WHERE plu = $8 AND id_branch = $9`;
@@ -88,8 +104,6 @@ export async function updateIteminDB(
 
   if (table === 1 && updatedItem.plu === "") {
     try {
-      await pool.query("BEGIN");
-
       // 1. Vytvoř záznam v store_items pouze s id_warehouse
       const itemResult = await pool.query(
         `INSERT INTO store_items (id_warehouse)
@@ -157,7 +171,7 @@ export async function updateIteminDB(
 }
 
 export async function searchInStoreFromDB(
-  table,
+  store,
   query,
   id_branch,
   limit,
@@ -165,19 +179,30 @@ export async function searchInStoreFromDB(
   page,
 ) {
   const likePattern = query ? `%${query}%` : `%`;
+  console.log("XXXXX Hledaný sklad:", store, "TYP:", typeof store);
+  const warehouseTableName =
+    store == 1
+      ? "store_frames"
+      : store == 2
+        ? "store_sunglasses"
+        : store == 3
+          ? "store_lens"
+          : store == 4
+            ? "store_cl"
+            : store == 5
+              ? "store_soldrops"
+              : store == 6
+                ? "store_goods"
+                : "";
 
-  const tableName = table === "store_frames" ? "store_frames" : ``;
-
-  if (tableName === "") {
+  if (warehouseTableName === "") {
     throw new Error("Neplatná tabulka skladu.");
   }
 
   try {
-    // Hledání řetězce ve všech sloupcích pomocí CAST na text
-    // Převedeme celý řádek na text a hledáme v něm
     const { rows: items } = await pool.query(
       `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
-       FROM ${tableName} sf 
+       FROM ${warehouseTableName} sf 
        LEFT JOIN contacts c ON c.id = sf.id_supplier 
        LEFT JOIN store_item_stock sis ON sis.id_store_item = sf.id_store_item 
        WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.id_branch = $2 
@@ -188,16 +213,15 @@ export async function searchInStoreFromDB(
 
     // Zjišťování celkového počtu záznamů
     const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS total FROM ${tableName} 
-       WHERE CAST(ROW(${tableName}.*) AS TEXT) ILIKE $1 
-       AND id_branch = $2`,
+      `SELECT COUNT(*)::int AS total FROM ${warehouseTableName} sf
+       WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 
+       AND sf.id_branch = $2`,
       [likePattern, id_branch],
     );
 
     const totalCount = rows[0]?.total ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    console.log(items.quantity_available);
     return {
       items, // každý item už obsahuje supplier_nick
       totalCount,
@@ -205,7 +229,6 @@ export async function searchInStoreFromDB(
       page,
     };
   } catch (err) {
-    console.error("Chyba při načítání ITEMS z STORE:", err);
     throw err;
   }
 }
