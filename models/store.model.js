@@ -2,15 +2,15 @@ import pool from "../db/index.js";
 
 export async function putInStoreDB(
   table,
-  id_branch,
+  branch_id,
   plu,
-  id_supplier,
+  supplier_id,
   delivery_note,
   quantity,
   price_buy,
   date,
 ) {
-  const warehouseTableName =
+  const storeTableName =
     table === 1
       ? "store_frames"
       : table === 2
@@ -25,44 +25,44 @@ export async function putInStoreDB(
                 ? "store_goods"
                 : "";
 
-  // Najdi id_store_item podle PLU a id_branch
-  const findItemSQL = `SELECT id_store_item FROM ${warehouseTableName} WHERE plu = $1 AND id_branch = $2`;
+  // Najdi store_item_id podle PLU a branch_id
+  const findItemSQL = `SELECT store_item_id FROM ${storeTableName} WHERE plu = $1 AND branch_id = $2`;
 
   const documentSQL =
-    "INSERT INTO store_documents (id_branch, id_supplier, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+    "INSERT INTO store_documents (branch_id, supplier_id, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
   const documentValues = [
-    id_branch, // $1
-    id_supplier, // $2
+    branch_id, // $1
+    supplier_id, // $2
     "receipt", // $3
     delivery_note, // $4
     date, // $5
   ];
 
-  const batchSQL = `INSERT INTO store_batches (store_documents_id, purchase_price, quantity_received, id_store_item) VALUES ($1, $2, $3, $4)`;
+  const batchSQL = `INSERT INTO store_batches (store_document_id, purchase_price, quantity_received, store_item_id) VALUES ($1, $2, $3, $4)`;
 
   try {
     await pool.query("BEGIN");
 
-    // Najdi id_store_item podle PLU
-    const itemResult = await pool.query(findItemSQL, [plu, id_branch]);
+    // Najdi store_item_id podle PLU
+    const itemResult = await pool.query(findItemSQL, [plu, branch_id]);
 
     if (itemResult.rows.length === 0) {
       await pool.query("ROLLBACK");
       throw new Error(`Položka s PLU ${plu} nebyla nalezena`);
     }
 
-    const id_store_item = itemResult.rows[0].id_store_item;
+    const store_item_id = itemResult.rows[0].store_item_id;
 
     // Vkládání záznamu do store_documents (dodací list)
     const docResult = await pool.query(documentSQL, documentValues);
-    const id_document = docResult.rows[0].id;
+    const store_document_id = docResult.rows[0].id;
 
     // Vkládání záznamu do store_batches (šarže naskladnění)
     const batchValues = [
-      id_document, // $1 - store_documents_id
+      id_document, // $1 - store_document_id
       price_buy, // $2 - purchase_price
       quantity, // $3 - quantity_received
-      id_store_item, // $4 - id_store_item
+      store_item_id, // $4 - store_item_id
     ];
 
     await pool.query(batchSQL, batchValues);
@@ -79,8 +79,8 @@ export async function putInStoreDB(
 export async function updateIteminDB(
   updatedItem,
   table,
-  id_branch,
-  id_organization,
+  branch_id,
+  organization_id,
 ) {
   const tableName = table === 1 ? "store_frames" : "";
   let commandSQL = "";
@@ -88,7 +88,7 @@ export async function updateIteminDB(
   await pool.query("BEGIN");
 
   if (table === 1 && updatedItem.plu !== "") {
-    commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, price = $4, gender = $5, material = $6, type = $7 WHERE plu = $8 AND id_branch = $9`;
+    commandSQL = `UPDATE ${tableName} SET collection = $1, product = $2, color = $3, price = $4, gender = $5, material = $6, type = $7 WHERE plu = $8 AND branch_id = $9`;
     values = [
       updatedItem.collection, // $1
       updatedItem.product, // $2
@@ -98,37 +98,37 @@ export async function updateIteminDB(
       updatedItem.material, // $6
       updatedItem.type, // $7
       updatedItem.plu, // $8
-      id_branch, // $9
+      branch_id, // $9
     ];
   }
 
   if (table === 1 && updatedItem.plu === "") {
     try {
-      // 1. Vytvoř záznam v store_items pouze s id_warehouse
+      // 1. Vytvoř záznam v store_items pouze s store_id
       const itemResult = await pool.query(
-        `INSERT INTO store_items (id_warehouse)
+        `INSERT INTO store_items (store_id)
          VALUES ($1)
          RETURNING id`,
-        [1], // id_warehouse (1 = frames)
+        [1], // store_id (1 = frames)
       );
-      const id_store_item = itemResult.rows[0].id;
+      const store_item_id = itemResult.rows[0].id;
 
       // 2. Získej nové PLU
       const newPluResult = await pool.query(
-        `SELECT COALESCE(MAX(plu), 0) + 1 as new_plu FROM store_frames WHERE id_branch = $1`,
-        [id_branch],
+        `SELECT COALESCE(MAX(plu), 0) + 1 as new_plu FROM store_frames WHERE branch_id = $1`,
+        [branch_id],
       );
       const newPlu = newPluResult.rows[0].new_plu;
 
-      // 3. Vytvoř záznam v store_frames s id_store_item a PLU (updated_at je ošetřeno triggerem)
+      // 3. Vytvoř záznam v store_frames s store_item_id a PLU (updated_at je ošetřeno triggerem)
       const frameResult = await pool.query(
-        `INSERT INTO store_frames (id_store_item, id_organization, id_branch, collection, product, color, size, gender, material, type, plu)
+        `INSERT INTO store_frames (store_item_id, organization_id, branch_id, collection, product, color, size, gender, material, type, plu)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
         [
-          id_store_item,
-          id_organization,
-          id_branch,
+          store_item_id,
+          organization_id,
+          branch_id,
           updatedItem.collection,
           updatedItem.product,
           updatedItem.color,
@@ -160,7 +160,7 @@ export async function updateIteminDB(
 
     if (result.rowCount === 0) {
       throw new Error(
-        `Záznam s PLU ${updatedItem.plu}, id_branch ${id_branch} a id_organization ${id_organization} nebyl nalezen nebo nesplňuje podmínky pro aktualizaci.`,
+        `Záznam s PLU ${updatedItem.plu}, branch_id ${branch_id} a organization_id ${organization_id} nebyl nalezen nebo nesplňuje podmínky pro aktualizaci.`,
       );
     }
     return result.rows;
@@ -173,14 +173,14 @@ export async function updateIteminDB(
 export async function searchInStoreFromDB(
   store,
   query,
-  id_branch,
+  branch_id,
   limit,
   offset,
   page,
 ) {
   const likePattern = query ? `%${query}%` : `%`;
-  console.log("XXXXX Hledaný sklad:", store, "TYP:", typeof store);
-  const warehouseTableName =
+  
+  const storeTableName =
     store == 1
       ? "store_frames"
       : store == 2
@@ -195,28 +195,40 @@ export async function searchInStoreFromDB(
                 ? "store_goods"
                 : "";
 
-  if (warehouseTableName === "") {
+  if (storeTableName === "") {
     throw new Error("Neplatná tabulka skladu.");
+  }
+
+  //Search SQL pro tabulku skladů
+  let SearchSQL = "";
+
+  if(store == 1 || store == 2){
+    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
+                 FROM ${storeTableName} sf 
+                 LEFT JOIN contacts c ON c.id = sf.supplier_id 
+                 LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
+                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2 
+                 ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
+  } else {
+    // Pro ostatní sklady (3-6) zatím bez JOIN
+    SearchSQL = `SELECT sf.* 
+                 FROM ${storeTableName} sf 
+                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2 
+                 ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   }
 
   try {
     const { rows: items } = await pool.query(
-      `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
-       FROM ${warehouseTableName} sf 
-       LEFT JOIN contacts c ON c.id = sf.id_supplier 
-       LEFT JOIN store_item_stock sis ON sis.id_store_item = sf.id_store_item 
-       WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.id_branch = $2 
-       ORDER BY sf.plu DESC 
-       LIMIT $3 OFFSET $4`,
-      [likePattern, id_branch, limit, offset],
+      SearchSQL,
+      [likePattern, branch_id, limit, offset],
     );
 
     // Zjišťování celkového počtu záznamů
     const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS total FROM ${warehouseTableName} sf
+      `SELECT COUNT(*)::int AS total FROM ${storeTableName} sf
        WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 
-       AND sf.id_branch = $2`,
-      [likePattern, id_branch],
+       AND sf.branch_id = $2`,
+      [likePattern, branch_id],
     );
 
     const totalCount = rows[0]?.total ?? 0;
@@ -229,17 +241,20 @@ export async function searchInStoreFromDB(
       page,
     };
   } catch (err) {
+    console.error("Chyba při hledání v skladu:", err);
+    console.error("SQL:", SearchSQL);
+    console.error("Params:", { likePattern, branch_id, limit, offset });
     throw err;
   }
 }
 
-export async function getContactsListFromDB(id_organization, query) {
+export async function getContactsListFromDB(organization_id, query) {
   try {
     // Hledání řetězce ve všech sloupcích pomocí CAST na text
     // Převedeme celý řádek na text a hledáme v něm
     const { rows: items } = await pool.query(
-      `SELECT id, nick FROM contacts WHERE field ILIKE $1 AND id_organizations = $2 ORDER BY nick ASC;`,
-      [`%${query}%`, id_organization],
+      `SELECT id, nick FROM contacts WHERE field ILIKE $1 AND organization_id = $2 ORDER BY nick ASC;`,
+      [`%${query}%`, organization_id],
     );
 
     return { items };
@@ -252,9 +267,9 @@ export async function getContactsListFromDB(id_organization, query) {
 export async function newOrderInsertToDB(order) {
   try {
     const {
-      id_client = `${order.id_client}`,
-      id_branch = `${order.id_branch}`,
-      id_member = `${order.id_member}`,
+      client_id = `${order.client_id}`,
+      branch_id = `${order.branch_id}`,
+      member_id = `${order.member_id}`,
       attrib = `${order.attrib}`,
       content = `${order.content}`,
       note = `${order.note}`,
@@ -262,8 +277,8 @@ export async function newOrderInsertToDB(order) {
     await pool.query("BEGIN");
 
     const userResult = await pool.query(
-      "INSERT INTO invoices (id_client, id_branch, id_member, attrib, content, note) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [id_client, id_branch, id_member, attrib, content, note],
+      "INSERT INTO invoices (client_id, branch_id, member_id, attrib, content, note) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+      [client_id, branch_id, member_id, attrib, content, note],
     );
     const newInvoiceID = userResult.rows[0].id;
     await pool.query("COMMIT");
@@ -278,7 +293,7 @@ export async function newTransactionInsertToDB(transaction) {
   console.log(transaction);
   try {
     const {
-      id_invoice = `${transaction.invoiceID}`,
+      invoice_id = `${transaction.invoiceID}`,
       attrib = `${transaction.attrib}`,
       price_a = `${transaction.price_a}`,
       vat_a = `${transaction.vat_a}`,
@@ -291,23 +306,23 @@ export async function newTransactionInsertToDB(transaction) {
     await pool.query("BEGIN");
 
     const userResult = await pool.query(
-      "INSERT INTO transactions (id_invoice, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-      [id_invoice, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c],
+      "INSERT INTO transactions (invoice_id, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+      [invoice_id, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c],
     );
     const newTransactionID = userResult.rows[0].id;
     await pool.query("COMMIT");
-    return newInvoiceID;
+    return invoice_id;
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;
   }
 }
 
-export async function ordersListFromDB(id_branch) {
+export async function ordersListFromDB(branch_id) {
   try {
     const result = await pool.query(
-      "SELECT * FROM orders WHERE id_branch = $1",
-      [id_branch],
+      "SELECT * FROM orders WHERE branch_id = $1",
+      [branch_id],
     );
     if (result.rows.length > 0) {
       return result.rows;
@@ -321,35 +336,35 @@ export async function ordersListFromDB(id_branch) {
 }
 
 export async function putInMultipleStoreDB(
-  id_branch,
-  id_organization,
+  branch_id,
+  organization_id,
   items,
-  id_warehouse,
+  store_id,
 ) {
   console.log("Model - putInMultipleStoreDB called with:", {
-    id_branch,
-    id_organization,
+    branch_id,
+    organization_id,
     items,
-    id_warehouse,
+    store_id,
   });
 
-  const warehouseTableName =
-    id_warehouse === 1
+  const storeTableName =
+    store_id === 1
       ? "store_frames"
-      : id_warehouse === 2
+      : store_id === 2
         ? "store_sunglasses"
-        : id_warehouse === 3
+        : store_id === 3
           ? "store_lens"
-          : id_warehouse === 4
+          : store_id === 4
             ? "store_cl"
-            : id_warehouse === 5
+            : store_id === 5
               ? "store_soldrops"
-              : id_warehouse === 6
+              : store_id === 6
                 ? "store_goods"
                 : "";
 
   // Extrahujeme společné hodnoty z items
-  const id_supplier = items.id_supplier;
+  const supplier_id = items.supplier_id;
   const delivery_note = items.delivery_note;
   const date = items.date;
 
@@ -395,36 +410,36 @@ export async function putInMultipleStoreDB(
   }
 
   const documentSQL =
-    "INSERT INTO store_documents (id_branch, id_supplier, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
+    "INSERT INTO store_documents (branch_id, supplier_id, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
 
-  //For example id_warehouse (1 = frames)
-  const getItemIdSQL = `SELECT id_store_item FROM ${warehouseTableName} WHERE plu = $1`;
+  //For example store_id (1 = frames)
+  const getItemIdSQL = `SELECT store_item_id FROM ${storeTableName} WHERE plu = $1`;
 
-  const createNewItemSQL = `INSERT INTO store_items (id_warehouse) VALUES ($1) RETURNING id`;
+  const createNewItemSQL = `INSERT INTO store_items (store_id) VALUES ($1) RETURNING id`;
 
-  const pluSQL = `SELECT COALESCE(MAX(plu), 0) + 1 as new_plu FROM ${warehouseTableName} WHERE id_branch = $1`;
+  const pluSQL = `SELECT COALESCE(MAX(plu), 0) + 1 as new_plu FROM ${storeTableName} WHERE branch_id = $1`;
 
   const insertFrameSQL = `
-    INSERT INTO ${warehouseTableName} (id_store_item, id_organization, id_branch, collection, product, color, size, gender, material, type, id_supplier, plu, price)
+    INSERT INTO ${storeTableName} (store_item_id, organization_id, branch_id, collection, product, color, size, gender, material, type, supplier_id, plu, price)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`;
 
   const batchSQL = `
-    INSERT INTO store_batches (store_documents_id, purchase_price, quantity_received, id_store_item)
+    INSERT INTO store_batches (store_document_id, purchase_price, quantity_received, store_item_id)
     VALUES ($1, $2, $3, $4)
   `;
 
   try {
     // 1. Vytvoř dokument (dodací list)
     const documentValues = [
-      id_branch,
-      id_supplier,
+      branch_id,
+      supplier_id,
       "receipt",
       delivery_note,
       date,
     ];
     const docResult = await pool.query(documentSQL, documentValues);
 
-    const store_documents_id = docResult.rows[0].id;
+    const store_document_id = docResult.rows[0].id;
 
     //BEGIN BEGIN BEGIN BEGIN
     await pool.query("BEGIN");
@@ -438,37 +453,37 @@ export async function putInMultipleStoreDB(
     // console.log("Processing", itemsArray, "items for naskladnění.");
     // 2. Pro každou položku
     for (const item of itemsArray) {
-      let id_store_item;
+      let store_item_id;
       console.log("Tohle je PLU:" + item.plu);
       // Zjisti nebo vytvoř store_item
       if (item.plu !== "") {
         // Pokud má PLU, zkus najít existující
         const itemResult = await pool.query(getItemIdSQL, [item.plu]);
         if (itemResult.rows.length > 0) {
-          id_store_item = itemResult.rows[0].id_store_item;
+          store_item_id = itemResult.rows[0].store_item_id;
         }
       }
 
-      if (!id_store_item) {
-        // Pokud PLU není nebo položka neexistuje, vytvoř novou položku v store_items a získej její id_store_item
+      if (!store_item_id) {
+        // Pokud PLU není nebo položka neexistuje, vytvoř novou položku v store_items a získej její store_item_id
         const newIdStoreItem = await pool.query(createNewItemSQL, [
-          id_warehouse,
+          store_id,
         ]);
         console.log(
           "Nová položka vytvořena v store_items s ID:",
           newIdStoreItem.rows[0].id,
         );
-        id_store_item = newIdStoreItem.rows[0].id;
+        store_item_id = newIdStoreItem.rows[0].id;
       }
 
-      const getNewPluResult = await pool.query(pluSQL, [id_branch]);
+      const getNewPluResult = await pool.query(pluSQL, [branch_id]);
       const newPlu = getNewPluResult.rows[0].new_plu;
 
       // 3. Vlož nebo aktualizuj store_frames
       const result = await pool.query(insertFrameSQL, [
-        id_store_item,
-        id_organization,
-        id_branch,
+        store_item_id,
+        organization_id,
+        branch_id,
         item.collection,
         item.product,
         item.color,
@@ -476,7 +491,7 @@ export async function putInMultipleStoreDB(
         item.gender,
         item.material,
         item.type,
-        id_supplier,
+        supplier_id,
         newPlu,
         item.price,
       ]);
@@ -486,10 +501,10 @@ export async function putInMultipleStoreDB(
 
       // 4. Vytvoř batch záznam
       await pool.query(batchSQL, [
-        store_documents_id,
+        store_document_id,
         item.price_buy,
         item.quantity,
-        id_store_item,
+        store_item_id,
       ]);
     }
     //Zde je konec FOR cyklu
@@ -510,6 +525,28 @@ export async function putInMultipleStoreDB(
   } catch (err) {
     console.error("Chyba při hromadném naskladňování:", err);
     await pool.query("ROLLBACK");
+    throw err;
+  }
+}
+
+export async function getLensInfoFromDB(plu) {
+  try {
+    console.log("Model - getLensInfoFromDB called with PLU:", plu);
+    
+    const result = await pool.query(
+      "SELECT * FROM catalog_lens WHERE plu = $1",
+      [plu]
+    );
+    
+    if (result.rows.length > 0) {
+      console.log("Model - Found lens info:", result.rows[0]);
+      return result.rows[0];
+    } else {
+      console.log("Model - No lens found with PLU:", plu);
+      return null;
+    }
+  } catch (err) {
+    console.error("Chyba při načítání informací o čočce:", err);
     throw err;
   }
 }

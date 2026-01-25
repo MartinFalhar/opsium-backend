@@ -14,9 +14,9 @@ export async function login(email, password) {
   try {
     // Načteme uživatele a jeho pobočku pomocí JOIN
     const result = await pool.query(
-      `SELECT u.*, b.id as id_branch 
+      `SELECT u.*, b.id as branch_id 
        FROM users u 
-       LEFT JOIN branches b ON u.id = b.id_users 
+       LEFT JOIN branches b ON u.id = b.user_id
        WHERE u.email = $1`,
       [email]
     );
@@ -26,7 +26,7 @@ export async function login(email, password) {
       const storedPassword = storedUser.password;
       const match = await bcrypt.compare(password, storedPassword);
 
-      return match ? storedUser : false; // vrací uživatele včetně id_branch, pokud je heslo správné
+      return match ? storedUser : false; // vrací uživatele včetně branch_id, pokud je heslo správné
     } else {
       return false;
     }

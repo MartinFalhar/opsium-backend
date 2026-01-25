@@ -6,10 +6,11 @@ import { ordersListFromDB } from "../models/store.model.js";
 import { getContactsListFromDB } from "../models/store.model.js";
 import { putInStoreDB } from "../models/store.model.js";
 import { putInMultipleStoreDB } from "../models/store.model.js";
+import { getLensInfoFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
-  // id_branch bereme z JWT tokenu
-  const id_branch = req.user.id_branch;
+  // branch_id bereme z JWT tokenu
+  const branch_id = req.user.branch_id;
 
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
@@ -25,7 +26,7 @@ export async function searchInStore(req, res) {
     const result = await searchInStoreFromDB(
       store,
       query,
-      id_branch,
+      branch_id,
       limit,
       offset,
       page,
@@ -42,11 +43,11 @@ export async function searchInStore(req, res) {
 }
 
 export async function searchInContacts(req, res) {
-  // id_branch bereme z JWT tokenu
-  const id_organization = req.user.id_organization;
+  // branch_id bereme z JWT tokenu
+  const organization_id = req.user.organization_id;
   const query = req.query.field || "";
   try {
-    const result = await getContactsListFromDB(id_organization, query);
+    const result = await getContactsListFromDB(organization_id, query);
     if (result) {
       res.json(result);
       // message: "Nahrání proběhlo v pořádku"
@@ -59,19 +60,21 @@ export async function searchInContacts(req, res) {
 }
 
 export async function putInStore(req, res) {
-  // id_branch bereme z JWT tokenu
-  const id_branch = req.user.id_branch;
+  // branch_id bereme z JWT tokenu
+  const branch_id = req.user.branch_id;
+  const store = req.body.store;
   const plu = req.body.plu;
-  const id_supplier = req.body.id_supplier;
+  const supplier_id = req.body.supplier_id;
   const delivery_note = req.body.delivery_note;
   const quantity = req.body.quantity;
   const price_buy = req.body.price_buy;
   const date = req.body.date;
 
   console.log("Controller - putInStore called with:", {
-    id_branch,
+    store,
+    branch_id,
     plu,
-    id_supplier,
+    supplier_id,
     delivery_note,
     quantity,
     price_buy,
@@ -81,9 +84,9 @@ export async function putInStore(req, res) {
   try {
     const result = await putInStoreDB(
       store,
-      id_branch,
+      branch_id,
       plu,
-      id_supplier,
+      supplier_id,
       delivery_note,
       quantity,
       price_buy,
@@ -101,18 +104,26 @@ export async function putInStore(req, res) {
 }
 
 export async function putInMultipleStore(req, res) {
-  // id_branch bereme z JWT tokenu
-  const id_branch = req.user.id_branch;
-  const id_organization = req.user.id_organization;
+  // branch_id bereme z JWT tokenu
+  const branch_id = req.user.branch_id;
+  const organization_id = req.user.organization_id;
   const items = req.body.items;
-  const id_warehouse = req.body.storeId;
+  const store_id = req.body.storeId;
+
+  console.log("Controller - putInMultipleStore called with:", {
+    branch_id,
+    organization_id,
+    storeId_from_body: req.body.storeId,
+    store_id,
+    items_keys: items ? Object.keys(items).slice(0, 5) : 'no items'
+  });
 
   try {
     const result = await putInMultipleStoreDB(
-      id_branch,
-      id_organization,
+      branch_id,
+      organization_id,
       items,
-      id_warehouse,
+      store_id,
     );
     if (result) {
       res.json(result);
@@ -126,10 +137,10 @@ export async function putInMultipleStore(req, res) {
 }
 
 export async function updateInStore(req, res) {
-  // id_branch bereme z JWT tokenu
-  const id_branch = req.user.id_branch;
+  // branch_id bereme z JWT tokenu
+  const branch_id = req.user.branch_id;
 
-  const id_organization = req.user.id_organization;
+  const organization_id = req.user.organization_id;
   const table = req.body.storeId;
   const updatedItem = req.body.values;
 
@@ -137,8 +148,8 @@ export async function updateInStore(req, res) {
     const result = await updateIteminDB(
       updatedItem,
       table,
-      id_branch,
-      id_organization,
+      branch_id,
+      organization_id,
     );
     if (result) {
       res.json(result);
@@ -153,10 +164,10 @@ export async function updateInStore(req, res) {
 
 export async function newOrder(req, res) {
   try {
-    // Přidáme id_branch z JWT tokenu
+    // Přidáme branch_id z JWT tokenu
     const result = await newOrderInsertToDB({
       ...req.body,
-      id_branch: req.user.id_branches,
+      branch_id: req.user.branch_id,
     });
     if (result) {
       res.json(result);
@@ -183,8 +194,8 @@ export async function newTransaction(req, res) {
 
 export async function ordersList(req, res) {
   try {
-    // id_branch bereme z JWT tokenu
-    const orders = await ordersListFromDB(req.user.id_branch);
+    // branch_id bereme z JWT tokenu
+    const orders = await ordersListFromDB(req.user.branch_id);
     if (orders && orders.length > 0) {
       res.json(orders);
     } else {
@@ -192,5 +203,24 @@ export async function ordersList(req, res) {
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function getLensInfo(req, res) {
+  const { plu } = req.body;
+  
+  console.log("Controller - getLensInfo called with PLU:", plu);
+  
+  try {
+    const lensInfo = await getLensInfoFromDB(plu);
+    
+    if (lensInfo) {
+      res.json({ success: true, data: lensInfo });
+    } else {
+      res.json({ success: false, message: "Čočka s tímto PLU nebyla nalezena" });
+    }
+  } catch (error) {
+    console.error("Controller - getLensInfo error:", error);
+    res.status(500).json({ success: false, message: "Chyba serveru při načítání informací o čočce" });
   }
 }

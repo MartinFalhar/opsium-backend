@@ -26,14 +26,14 @@ export async function loginUser(req, res) {
   try {
     const loginProceed = await login(req.body.email, req.body.password);
     if (loginProceed.id > 0) {
-      // Vytvoříme JWT token s údaji uživatele včetně id_branch
+      // Vytvoříme JWT token s údaji uživatele včetně branch_id
 
       const token = jwt.sign(
         {
           id: loginProceed.id,
           email: loginProceed.email,
-          id_branch: loginProceed.id_branch, // Změněno z id_branches na id_branch
-          id_organization: loginProceed.id_organizations,
+          branch_id: loginProceed.branch_id, // Mapujeme branch_id z DB na branch_id v tokenu
+          organization_id: loginProceed.organization_id,
           rights: loginProceed.rights
         },
         process.env.JWT_SECRET || 'your-secret-key-change-in-production', // použijte silný klíč v .env

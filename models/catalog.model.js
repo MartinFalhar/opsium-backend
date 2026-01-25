@@ -31,7 +31,7 @@ export async function searchForLensFromDB(lensSearchConditions) {
     //   "SELECT * FROM catalog_manufact WHERE id = ANY($1::int[])",
 
     const { rows: items } = await pool.query(
-      "SELECT l.*, man.manufact_data, col.colors_data, lay.layers_data FROM catalog_lens l LEFT JOIN LATERAL (SELECT to_jsonb(m) AS manufact_data FROM catalog_manufact m WHERE m.id = l.id_manufact) man ON true LEFT JOIN LATERAL (SELECT COALESCE(jsonb_agg(to_jsonb(c) ORDER BY c.id), '[]'::jsonb) AS colors_data FROM catalog_color c WHERE c.id = ANY(l.colors)) col ON true LEFT JOIN LATERAL (SELECT COALESCE(jsonb_agg(to_jsonb(lay) ORDER BY lay.id), '[]'::jsonb) AS layers_data FROM catalog_layers lay WHERE lay.id = ANY(l.layers)) lay ON true WHERE $1 BETWEEN l.range_start AND l.range_end AND $2 BETWEEN l.range_start AND l.range_end AND $3 <= l.range_cyl AND $4 <= l.range_cyl AND l.range_dia @> ARRAY[$5]::smallint[]",
+      "SELECT l.*, man.manufact_data, col.colors_data, lay.layers_data FROM catalog_lens l LEFT JOIN LATERAL (SELECT to_jsonb(m) AS manufact_data FROM catalog_lens_supplier_info m WHERE m.id = l.supplier_id) man ON true LEFT JOIN LATERAL (SELECT COALESCE(jsonb_agg(to_jsonb(c) ORDER BY c.id), '[]'::jsonb) AS colors_data FROM catalog_color c WHERE c.id = ANY(l.colors)) col ON true LEFT JOIN LATERAL (SELECT COALESCE(jsonb_agg(to_jsonb(lay) ORDER BY lay.id), '[]'::jsonb) AS layers_data FROM catalog_layers lay WHERE lay.id = ANY(l.layers)) lay ON true WHERE $1 BETWEEN l.range_start AND l.range_end AND $2 BETWEEN l.range_start AND l.range_end AND $3 <= l.range_cyl AND $4 <= l.range_cyl AND l.range_dia @> ARRAY[$5]::smallint[]",
       [
         lensSearchConditions.pS,
         lensSearchConditions.lS,
@@ -62,8 +62,8 @@ export async function searchForLensFromDB(lensSearchConditions) {
 export async function invoicesListFromDB(body) {
   try {
     const result = await pool.query(
-      "SELECT * FROM invoices WHERE id_branch = $1",
-      [body.id_branch]
+      "SELECT * FROM invoices WHERE branch_id = $1",
+      [body.branch_id]
     ); // Add filtering based on body if needed
     if (result.rows.length > 0) {
       return result.rows;

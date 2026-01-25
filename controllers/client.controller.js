@@ -9,8 +9,8 @@ import {
 
 export async function loadClients(req, res) {
   try {
-    // id_branch nyní bereme z JWT tokenu, který je dekódován v middleware
-    const clients = await loadClientsFromDB({ id_branch: req.user.id_branch });
+    // branch nyní bereme z JWT tokenu, který je dekódován v middleware
+    const clients = await loadClientsFromDB({ branch_id: req.user.branch_id });
     if (clients && clients.length > 0) {
       res.json(clients);
       // message: "Nahrání proběhlo v pořádku"
@@ -36,8 +36,8 @@ export async function createClient(req, res) {
     }
 
     //Nový uživatel neexistuje, pokračujeme v registraci
-    // Přidáme id_branch z JWT tokenu
-    await insertNewClient({ ...req.body, id_branch: req.user.id_branch });
+    // Přidáme branch_id z JWT tokenu
+    await insertNewClient({ ...req.body, branch_id: req.user.branch_id });
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");
@@ -49,8 +49,8 @@ export async function saveExamination(req, res) {
     // console.log("BCKD saveExamination called with:", req.body);
 
     //Nový uživatel neexistuje, pokračujeme v registraci
-    // Přidáme id_branch z JWT tokenu
-    const examSave = await saveExaminationToDB({ ...req.body, id_branches: req.user.id_branch });
+    // Přidáme branch_id z JWT tokenu
+    const examSave = await saveExaminationToDB({ ...req.body, branch_id: req.user.branch_id });
     res.json(examSave);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
@@ -60,8 +60,8 @@ export async function saveExamination(req, res) {
 
 export async function loadExamsList(req, res) {
   try {
-    // Přidáme id_branch z JWT tokenu
-    const examsList = await loadExamsListFromDB({ ...req.body, id_branches: req.user.id_branch });
+    // Přidáme branch_id z JWT tokenu
+    const examsList = await loadExamsListFromDB({ ...req.body, branch_id: req.user.branch_id });
     res.json(examsList);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
@@ -71,8 +71,8 @@ export async function loadExamsList(req, res) {
 
 export async function loadExamination(req, res) {
   try {
-    // Přidáme id_branch z JWT tokenu
-    const examination = await loadExaminationFromDB({ ...req.body, id_branches: req.user.id_branch });
+    // Přidáme branch_id z JWT tokenu
+    const examination = await loadExaminationFromDB({ ...req.body, branch_id: req.user.branch_id });
     res.json(examination);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);

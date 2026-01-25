@@ -64,7 +64,7 @@ export async function createUser(req, res) {
     //Nový uživatel neexistuje, pokračujeme v registraci
     const newAdminID = await insertNewUser(req.body);
 
-    req.body.id_users = newAdminID;
+    req.body.user_id = newAdminID;
     //vytvořímě i pobočku pro tohoto uživatele
     const newBranch = await insertNewBranch(req.body);
 
@@ -247,7 +247,7 @@ export async function superadminInfo(req, res) {
 
 export async function adminInfo(req, res) {
   try {
-    const info = await adminInfoFromDB(req.body.id_organizations);
+    const info = await adminInfoFromDB(req.body.organization_id);
     return res.json(info);
   } catch (error) {
     console.error("Controller > adminInfo error:", error);
@@ -259,27 +259,28 @@ export async function adminInfo(req, res) {
 }
 
 export async function organizationInfo(req, res) {
-  try {
-    const organizationInfo = await organizationInfoFromDB(req.body.id_organizations);
+
+    try {
+    const organizationInfo = await organizationInfoFromDB(req.body.organization_id);
     return res.json(organizationInfo);
   } catch (error) {
-    console.error("Controller > opsiumInfo error:", error);
+    console.error("Controller > organizationInfo error:", error);
     return res.status(500).json({
       success: false,
-      message: "Chyba serveru při získávání OPISUM INFO",
+      message: "Chyba serveru při získávání ORGANIZATION INFO",
     });
   }
 }
 
 export async function branchInfo(req, res) {
   try {
-    const branchInfo = await branchInfoFromDB(req.body.id_user);
+    const branchInfo = await branchInfoFromDB(req.body.user_id);
     return res.json(branchInfo);
   } catch (error) {
     console.error("Controller > branchInfo error:", error);
     return res.status(500).json({
       success: false,
-      message: "Chyba serveru při získávání OPISUM INFO",
+      message: "Chyba serveru při získávání BRANCH INFO",
     });
   }
 }

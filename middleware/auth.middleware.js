@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 /**
  * Middleware pro autentizaci pomocí JWT tokenu
  * Extrahuje token z Authorization header a dekóduje uživatelská data
- * Přidává data uživatele (včetně id_branches) do req.user
+ * Přidává data uživatele (včetně branch_id) do req.user
  */
 export function authenticateToken(req, res, next) {
   // Získáme token z Authorization header (formát: "Bearer TOKEN")

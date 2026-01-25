@@ -44,8 +44,8 @@ export async function searchVatAtDate(req, res) {
 export async function searchForServices(req, res) {
 
   try {
-    // Přidáme id_branch z JWT tokenu
-    const result = await searchForServicesFromDB({ id_branch: req.user.id_branch });
+    // Přidáme branch_id z JWT tokenu
+    const result = await searchForServicesFromDB({ branch_id: req.user.branch_id });
 
     if (result) {
       res.json(result);
@@ -61,8 +61,8 @@ export async function searchForServices(req, res) {
 export async function updateServices(req, res) {
   console.log("Received request to update services:", req.body.changedItem.plu);
   try {
-    // Přidáme id_branch z JWT tokenu
-    const result = await updateServicesInDB({ ...req.body.changedItem, id_branch: req.user.id_branch });
+    // Přidáme branch_id z JWT tokenu
+    const result = await updateServicesInDB({ ...req.body.changedItem, branch_id: req.user.branch_id });
 
     if (result) {
       res.json(result);
@@ -79,8 +79,8 @@ export async function updateServices(req, res) {
 export async function deleteServices(req, res) {
   console.log("Received request to delete service:", req.body.id);
  try {
-    // id_branch nyní bereme z JWT tokenu
-    const result = await deleteServicesInDB(req.body.id, req.user.id_branch);
+    // branch_id nyní bereme z JWT tokenu
+    const result = await deleteServicesInDB(req.body.id, req.user.branch_id);
 
     if (result) {
       res.json(result);
