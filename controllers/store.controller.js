@@ -11,7 +11,7 @@ import { getLensInfoFromDB } from "../models/store.model.js";
 export async function searchInStore(req, res) {
   // branch_id bereme z JWT tokenu
   const branch_id = req.user.branch_id;
-
+ 
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
@@ -209,14 +209,20 @@ export async function ordersList(req, res) {
 export async function getLensInfo(req, res) {
   const { plu } = req.body;
   
-  console.log("Controller - getLensInfo called with PLU:", plu);
+  console.log("========== BACKEND getLensInfo ==========");
+  console.log("PLU received:", plu);
+  console.log("PLU type:", typeof plu);
   
   try {
     const lensInfo = await getLensInfoFromDB(plu);
     
     if (lensInfo) {
+      console.log("Lens found in DB:", lensInfo);
+      console.log("Keys in lensInfo:", Object.keys(lensInfo));
+      console.log("Sending response with success: true");
       res.json({ success: true, data: lensInfo });
     } else {
+      console.log("No lens found with PLU:", plu);
       res.json({ success: false, message: "Čočka s tímto PLU nebyla nalezena" });
     }
   } catch (error) {

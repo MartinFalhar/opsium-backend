@@ -536,7 +536,7 @@ export async function getLensInfoFromDB(plu) {
     const result = await pool.query(
       "SELECT * FROM catalog_lens WHERE plu = $1",
       [plu]
-    );
+    ); 
     
     if (result.rows.length > 0) {
       console.log("Model - Found lens info:", result.rows[0]);
