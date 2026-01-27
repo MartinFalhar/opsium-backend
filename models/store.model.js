@@ -179,7 +179,7 @@ export async function searchInStoreFromDB(
   page,
 ) {
   const likePattern = query ? `%${query}%` : `%`;
-  
+
   const storeTableName =
     store == 1
       ? "store_frames"
@@ -202,26 +202,31 @@ export async function searchInStoreFromDB(
   //Search SQL pro tabulku skladů
   let SearchSQL = "";
 
-  if(store == 1 || store == 2){
+  if (store == 1 || store == 2) {
     SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
                  LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
-                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2 
+                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   } else {
     // Pro ostatní sklady (3-6) zatím bez JOIN
-    SearchSQL = `SELECT sf.* 
+    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
                  FROM ${storeTableName} sf 
-                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2 
+                 LEFT JOIN contacts c ON c.id = sf.supplier_id 
+                 LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
+                 INNER JOIN catalog_lens cl ON cl.id = sf.catalog_lens_id
+                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   }
 
   try {
-    const { rows: items } = await pool.query(
-      SearchSQL,
-      [likePattern, branch_id, limit, offset],
-    );
+    const { rows: items } = await pool.query(SearchSQL, [
+      likePattern,
+      branch_id,
+      limit,
+      offset,
+    ]);
 
     // Zjišťování celkového počtu záznamů
     const { rows } = await pool.query(
@@ -394,20 +399,40 @@ export async function putInMultipleStoreDB(
 
     if (hasData) {
       itemsArray.push({
+        //STORE - ALL
         plu: items[`plu${suffix}`] || "",
+        price: items[`price${suffix}`] || 0,
+        price_buy: items[`price_buy${suffix}`] || 0,
+        quantity: items[`quantity${suffix}`] || 1,
+
+        //STORE 1 a 2 - FRAMES a SUNGLASSES
+
         collection: items[`collection${suffix}`] || "",
         product: items[`product${suffix}`] || "",
         color: items[`color${suffix}`] || "",
-        price_buy: items[`price_buy${suffix}`] || 0,
-        price: items[`price_sold${suffix}`] || 0,
-        quantity: items[`quantity${suffix}`] || 1,
         size: items[`size${suffix}`] || "",
         gender: items[`gender${suffix}`] || "",
         material: items[`material${suffix}`] || "",
         type: items[`type${suffix}`] || "",
+
+        //STORE 3 - LENS
+        catalog_lens_id: items[`id${suffix}`] || "",
+        name: items[`name${suffix}`] || "",
+        sph: items[`sph${suffix}`] || 0,
+        cyl: items[`cyl${suffix}`] || 0,
+        ax: items[`ax${suffix}`] || 0,
+        code: items[`code${suffix}`] || "",
       });
     }
   }
+
+  console.log(
+    "storeDocuments - itemsArray prepared:",
+    branch_id,
+    supplier_id,
+    delivery_note,
+    date,
+  );
 
   const documentSQL =
     "INSERT INTO store_documents (branch_id, supplier_id, type, delivery_note, received_at) VALUES ($1, $2, $3, $4, $5) RETURNING id";
@@ -419,9 +444,14 @@ export async function putInMultipleStoreDB(
 
   const pluSQL = `SELECT COALESCE(MAX(plu), 0) + 1 as new_plu FROM ${storeTableName} WHERE branch_id = $1`;
 
+  // Insert SQL pro frames
   const insertFrameSQL = `
     INSERT INTO ${storeTableName} (store_item_id, organization_id, branch_id, collection, product, color, size, gender, material, type, supplier_id, plu, price)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`;
+
+  const insertLensSQL = `
+    INSERT INTO ${storeTableName} (catalog_lens_id, branch_id, organization_id, plu, sph, cyl,ax, price, code, store_item_id, supplier_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
 
   const batchSQL = `
     INSERT INTO store_batches (store_document_id, purchase_price, quantity_received, store_item_id)
@@ -466,9 +496,7 @@ export async function putInMultipleStoreDB(
 
       if (!store_item_id) {
         // Pokud PLU není nebo položka neexistuje, vytvoř novou položku v store_items a získej její store_item_id
-        const newIdStoreItem = await pool.query(createNewItemSQL, [
-          store_id,
-        ]);
+        const newIdStoreItem = await pool.query(createNewItemSQL, [store_id]);
         console.log(
           "Nová položka vytvořena v store_items s ID:",
           newIdStoreItem.rows[0].id,
@@ -480,21 +508,42 @@ export async function putInMultipleStoreDB(
       const newPlu = getNewPluResult.rows[0].new_plu;
 
       // 3. Vlož nebo aktualizuj store_frames
-      const result = await pool.query(insertFrameSQL, [
-        store_item_id,
-        organization_id,
-        branch_id,
-        item.collection,
-        item.product,
-        item.color,
-        item.size,
-        item.gender,
-        item.material,
-        item.type,
-        supplier_id,
-        newPlu,
-        item.price,
-      ]);
+      const insertSQL =
+        store_id === 1 ? insertFrameSQL : store_id === 3 ? insertLensSQL : null;
+      const insertValues =
+        store_id === 1
+          ? [
+              store_item_id,
+              organization_id,
+              branch_id,
+              item.collection,
+              item.product,
+              item.color,
+              item.size,
+              item.gender,
+              item.material,
+              item.type,
+              supplier_id,
+              newPlu,
+              item.price,
+            ]
+          : store_id === 3
+            ? [
+                item.catalog_lens_id,
+                branch_id,
+                organization_id,
+                newPlu,
+                item.sph,
+                item.cyl,
+                item.ax,
+                item.price,
+                item.code,
+                store_item_id,
+                supplier_id,
+              ]
+            : [];
+
+      const result = await pool.query(insertSQL, insertValues);
 
       pluArray.push(newPlu);
       console.log("Inserted/Updated frame with PLU:", newPlu);
@@ -531,15 +580,12 @@ export async function putInMultipleStoreDB(
 
 export async function getLensInfoFromDB(plu) {
   try {
-    console.log("Model - getLensInfoFromDB called with PLU:", plu);
-    
     const result = await pool.query(
       "SELECT * FROM catalog_lens WHERE plu = $1",
-      [plu]
-    ); 
-    
+      [plu],
+    );
+
     if (result.rows.length > 0) {
-      console.log("Model - Found lens info:", result.rows[0]);
       return result.rows[0];
     } else {
       console.log("Model - No lens found with PLU:", plu);
