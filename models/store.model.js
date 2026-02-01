@@ -211,7 +211,7 @@ export async function searchInStoreFromDB(
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   } else {
     // Pro ostatní sklady (3-6) zatím bez JOIN
-    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
+    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_lens_name 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
                  LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
@@ -238,7 +238,7 @@ export async function searchInStoreFromDB(
 
     const totalCount = rows[0]?.total ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
-
+    console.log(items);
     return {
       items, // každý item už obsahuje supplier_nick
       totalCount,
