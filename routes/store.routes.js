@@ -9,6 +9,7 @@ import { authenticateToken } from "../middleware/auth.middleware.js";
 import { putInStore } from "../controllers/store.controller.js";
 import { putInMultipleStore } from "../controllers/store.controller.js";
 import { getLensInfo } from "../controllers/store.controller.js";
+import { getVatList } from "../controllers/store.controller.js";
 
 const router = express.Router();
 
@@ -17,6 +18,8 @@ const router = express.Router();
 router.get("/search", authenticateToken, searchInStore);
 
 router.get("/suppliers-list", authenticateToken, searchInContacts);
+
+router.get("/vat-list", authenticateToken, getVatList);
 
 router.post("/update", authenticateToken, updateInStore);
 

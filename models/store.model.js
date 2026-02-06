@@ -202,7 +202,7 @@ export async function searchInStoreFromDB(
   //Search SQL pro tabulku skladů
   let SearchSQL = "";
 
-  if (store == 1 || store == 2) {
+  if (store == 1 || store == 2 || store == 6) {
     SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
@@ -210,7 +210,7 @@ export async function searchInStoreFromDB(
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   } else {
-    // Pro ostatní sklady (3-6) zatím bez JOIN
+    // Pro ostatní sklady (3-5) zatím bez JOIN
     SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_lens_name 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
@@ -255,12 +255,22 @@ export async function searchInStoreFromDB(
 
 export async function getContactsListFromDB(organization_id, query) {
   try {
-    // Hledání řetězce ve všech sloupcích pomocí CAST na text
-    // Převedeme celý řádek na text a hledáme v něm
-    const { rows: items } = await pool.query(
-      `SELECT id, nick FROM contacts WHERE field ILIKE $1 AND organization_id = $2 ORDER BY nick ASC;`,
-      [`%${query}%`, organization_id],
-    );
+    // Pokud je query prázdný, vrátíme všechny kontakty pro danou organizaci
+    // Jinak filtrujeme podle pole field
+    let items;
+    if (!query || query.trim() === "") {
+      const result = await pool.query(
+        `SELECT id, nick FROM contacts WHERE organization_id = $1 ORDER BY nick ASC;`,
+        [organization_id],
+      );
+      items = result.rows;
+    } else {
+      const result = await pool.query(
+        `SELECT id, nick FROM contacts WHERE field ILIKE $1 AND organization_id = $2 ORDER BY nick ASC;`,
+        [`%${query}%`, organization_id],
+      );
+      items = result.rows;
+    }
 
     return { items };
   } catch (err) {
@@ -422,6 +432,13 @@ export async function putInMultipleStoreDB(
         cyl: items[`cyl${suffix}`] || 0,
         ax: items[`ax${suffix}`] || 0,
         code: items[`code${suffix}`] || "",
+
+        //STORE 6 - GOODS
+        model: items[`model${suffix}`] || "",
+        vat_rate: items[`vat_rate${suffix}`] || 0,
+        param: items[`param${suffix}`] || "",
+        uom: items[`uom${suffix}`] || "",
+        tags: items[`tags${suffix}`] || "",
       });
     }
   }
@@ -450,8 +467,12 @@ export async function putInMultipleStoreDB(
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`;
 
   const insertLensSQL = `
-    INSERT INTO ${storeTableName} (catalog_lens_id, branch_id, organization_id, plu, sph, cyl,ax, price, code, store_item_id, supplier_id)
+    INSERT INTO ${storeTableName} (catalog_lens_id, branch_id, organization_id, plu, sph, cyl, ax, price, code, store_item_id, supplier_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
+
+  const insertGoodsSQL = `
+    INSERT INTO ${storeTableName} (store_item_id, branch_id, organization_id, plu, model, size, color, uom, tags, vat_type_id, price, supplier_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
 
   const batchSQL = `
     INSERT INTO store_batches (store_document_id, purchase_price, quantity_received, store_item_id)
@@ -509,7 +530,7 @@ export async function putInMultipleStoreDB(
 
       // 3. Vlož nebo aktualizuj store_frames
       const insertSQL =
-        store_id === 1 ? insertFrameSQL : store_id === 3 ? insertLensSQL : null;
+        store_id === 1 ? insertFrameSQL : store_id === 3 ? insertLensSQL : store_id === 6 ? insertGoodsSQL : null;
       const insertValues =
         store_id === 1
           ? [
@@ -541,7 +562,22 @@ export async function putInMultipleStoreDB(
                 store_item_id,
                 supplier_id,
               ]
-            : [];
+            : store_id === 6
+              ? [
+                  store_item_id,
+                  branch_id,
+                  organization_id,
+                  newPlu,
+                  item.model,
+                  item.size,
+                  item.color,                  
+                  item.uom,
+                  item.tags,
+                  item.vat_rate,
+                  item.price,
+                  supplier_id,
+                ]
+              : [];
 
       const result = await pool.query(insertSQL, insertValues);
 
@@ -593,6 +629,19 @@ export async function getLensInfoFromDB(plu) {
     }
   } catch (err) {
     console.error("Chyba při načítání informací o čočce:", err);
+    throw err;
+  }
+}
+
+export async function getVatListFromDB() {
+  try {
+    const { rows: items } = await pool.query(
+      `SELECT id, rate FROM vat_rates ORDER BY rate ASC;`,
+    );
+
+    return { items };
+  } catch (err) {
+    console.error("Chyba při načítání sazeb DPH:", err);
     throw err;
   }
 }

@@ -7,6 +7,7 @@ import { getContactsListFromDB } from "../models/store.model.js";
 import { putInStoreDB } from "../models/store.model.js";
 import { putInMultipleStoreDB } from "../models/store.model.js";
 import { getLensInfoFromDB } from "../models/store.model.js";
+import { getVatListFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // branch_id bereme z JWT tokenu
@@ -18,10 +19,6 @@ export async function searchInStore(req, res) {
   const query = req.query.value || "";
   const store = req.query.store;
 
-  console.log("Controller - searchInStore called with:", {
-    store,
-    query,
-  });
   try {
     const result = await searchInStoreFromDB(
       store,
@@ -70,17 +67,6 @@ export async function putInStore(req, res) {
   const price_buy = req.body.price_buy;
   const date = req.body.date;
 
-  console.log("Controller - putInStore called with:", {
-    store,
-    branch_id,
-    plu,
-    supplier_id,
-    delivery_note,
-    quantity,
-    price_buy,
-    date,
-  });
-
   try {
     const result = await putInStoreDB(
       store,
@@ -110,13 +96,13 @@ export async function putInMultipleStore(req, res) {
   const items = req.body.items;
   const store_id = req.body.storeId;
 
-  console.log("Controller - putInMultipleStore called with:", {
-    branch_id,
-    organization_id,
-    storeId_from_body: req.body.storeId,
-    store_id,
-    items_keys: items ? Object.keys(items).slice(0, 5) : "no items",
-  });
+  // console.log("Controller - putInMultipleStore called with:", {
+  //   branch_id,
+  //   organization_id,
+  //   storeId_from_body: req.body.storeId,
+  //   store_id,
+  //   items_keys: items ? Object.keys(items).slice(0, 5) : "no items",
+  // });
 
   try {
     const result = await putInMultipleStoreDB(
@@ -226,5 +212,19 @@ export async function getLensInfo(req, res) {
         success: false,
         message: "Chyba serveru při načítání informací o čočce",
       });
+  }
+}
+
+export async function getVatList(req, res) {
+  try {
+    const result = await getVatListFromDB();
+    if (result) {
+      res.json(result);
+    } else {
+      res.json({ message: "Selhání při načítání sazeb DPH." });
+    }
+  } catch (error) {
+    console.error("Controller - getVatList error:", error);
+    res.status(500).json({ success: false, message: "Chyba serveru" });
   }
 }
