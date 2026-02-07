@@ -8,7 +8,7 @@ import { newTransaction } from "../controllers/store.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 import { putInStore } from "../controllers/store.controller.js";
 import { putInMultipleStore } from "../controllers/store.controller.js";
-import { getLensInfo } from "../controllers/store.controller.js";
+import { getCatalogInfo } from "../controllers/store.controller.js";
 import { getVatList } from "../controllers/store.controller.js";
 
 const router = express.Router();
@@ -33,6 +33,6 @@ router.post("/new-transaction", authenticateToken, newTransaction);
 
 router.post("/orders-list", authenticateToken, ordersList);
 
-router.post("/getlens", authenticateToken, getLensInfo);
+router.post("/getlens", authenticateToken, getCatalogInfo);
 
 export default router;

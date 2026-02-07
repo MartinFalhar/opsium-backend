@@ -6,7 +6,7 @@ import { ordersListFromDB } from "../models/store.model.js";
 import { getContactsListFromDB } from "../models/store.model.js";
 import { putInStoreDB } from "../models/store.model.js";
 import { putInMultipleStoreDB } from "../models/store.model.js";
-import { getLensInfoFromDB } from "../models/store.model.js";
+import { getCatalogInfoFromDB } from "../models/store.model.js";
 import { getVatListFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
@@ -192,25 +192,25 @@ export async function ordersList(req, res) {
   }
 }
 
-export async function getLensInfo(req, res) {
-  const { plu } = req.body;
+export async function getCatalogInfo(req, res) {
+  const { plu, catalogType } = req.body;
   try {
-    const lensInfo = await getLensInfoFromDB(plu);
-    if (lensInfo) {
-      res.json({ success: true, data: lensInfo });
+    const catalogInfo = await getCatalogInfoFromDB(plu, catalogType);
+    if (catalogInfo) {
+      res.json({ success: true, data: catalogInfo });
     } else {
-      res.json({
+      res.status(404).json({
         success: false,
-        message: "Čočka s tímto PLU nebyla nalezena",
+        message: "Položka s tímto PLU nebyla nalezena v katalogu",
       });
     }
   } catch (error) {
-    console.error("Controller - getLensInfo error:", error);
+    console.error("Controller - getCatalogInfo error:", error);
     res
       .status(500)
       .json({
         success: false,
-        message: "Chyba serveru při načítání informací o čočce",
+        message: "Chyba serveru při načítání informací z katalogu",
       });
   }
 }

@@ -201,7 +201,7 @@ export async function searchInStoreFromDB(
 
   //Search SQL pro tabulku skladů
   let SearchSQL = "";
-
+  //sklady frames, sunglasses a goods
   if (store == 1 || store == 2 || store == 6) {
     SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
                  FROM ${storeTableName} sf 
@@ -210,14 +210,27 @@ export async function searchInStoreFromDB(
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   } else {
-    // Pro ostatní sklady (3-5) zatím bez JOIN
-    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_lens_name 
+    // sklad lens
+    if (store == 3) {
+      SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_lens_name 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
                  LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
                  INNER JOIN catalog_lens cl ON cl.id = sf.catalog_lens_id
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
+    } else {
+      // sklad contact lenses
+      if (store == 4) {
+        SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_cl_name 
+                 FROM ${storeTableName} sf 
+                 LEFT JOIN contacts c ON c.id = sf.supplier_id 
+                 LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
+                 INNER JOIN catalog_lens cl ON cl.id = sf.catalog_cl_id
+                 WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
+                 ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
+      }
+    }
   }
 
   try {
@@ -425,8 +438,9 @@ export async function putInMultipleStoreDB(
         material: items[`material${suffix}`] || "",
         type: items[`type${suffix}`] || "",
 
-        //STORE 3 - LENS
+        //STORE 3,4 - LENS, CONTACT LENS
         catalog_lens_id: items[`id${suffix}`] || "",
+        catalog_cl_id: items[`id${suffix}`] || "",
         name: items[`name${suffix}`] || "",
         sph: items[`sph${suffix}`] || 0,
         cyl: items[`cyl${suffix}`] || 0,
@@ -469,6 +483,10 @@ export async function putInMultipleStoreDB(
   const insertLensSQL = `
     INSERT INTO ${storeTableName} (catalog_lens_id, branch_id, organization_id, plu, sph, cyl, ax, price, code, store_item_id, supplier_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
+
+  const insertCLSQL = `
+    INSERT INTO ${storeTableName} (catalog_cl_id, branch_id, organization_id, plu, sph, cyl, ax, price, store_item_id, supplier_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
 
   const insertGoodsSQL = `
     INSERT INTO ${storeTableName} (store_item_id, branch_id, organization_id, plu, model, size, color, uom, tags, vat_type_id, price, supplier_id)
@@ -530,7 +548,15 @@ export async function putInMultipleStoreDB(
 
       // 3. Vlož nebo aktualizuj store_frames
       const insertSQL =
-        store_id === 1 ? insertFrameSQL : store_id === 3 ? insertLensSQL : store_id === 6 ? insertGoodsSQL : null;
+        store_id === 1
+          ? insertFrameSQL
+          : store_id === 3
+            ? insertLensSQL
+            : store_id === 4
+              ? insertCLSQL
+              : store_id === 6
+                ? insertGoodsSQL
+                : null;
       const insertValues =
         store_id === 1
           ? [
@@ -562,22 +588,35 @@ export async function putInMultipleStoreDB(
                 store_item_id,
                 supplier_id,
               ]
-            : store_id === 6
+            : store_id === 4
               ? [
-                  store_item_id,
+                  item.catalog_cl_id,
                   branch_id,
                   organization_id,
                   newPlu,
-                  item.model,
-                  item.size,
-                  item.color,                  
-                  item.uom,
-                  item.tags,
-                  item.vat_rate,
+                  item.sph,
+                  item.cyl,
+                  item.ax,
                   item.price,
+                  store_item_id,
                   supplier_id,
                 ]
-              : [];
+              : store_id === 6
+                ? [
+                    store_item_id,
+                    branch_id,
+                    organization_id,
+                    newPlu,
+                    item.model,
+                    item.size,
+                    item.color,
+                    item.uom,
+                    item.tags,
+                    item.vat_rate,
+                    item.price,
+                    supplier_id,
+                  ]
+                : [];
 
       const result = await pool.query(insertSQL, insertValues);
 
@@ -614,21 +653,32 @@ export async function putInMultipleStoreDB(
   }
 }
 
-export async function getLensInfoFromDB(plu) {
+export async function getCatalogInfoFromDB(plu, catalogType) {
   try {
+    // Mapování typu skladu na název tabulky
+    const catalogTables = {
+      StoreLens: "catalog_lens",
+      StoreCL: "catalog_cl",
+      StoreSoldrops: "catalog_soldrops",
+    };
+
+    const tableName = catalogTables[catalogType] || "catalog_lens";
     const result = await pool.query(
-      "SELECT * FROM catalog_lens WHERE plu = $1",
+      `SELECT cc.*, c.nick AS supplier_nick
+   FROM catalog_cl cc
+   LEFT JOIN contacts c ON c.id = cc.supplier_id
+   WHERE cc.plu = $1`,
       [plu],
     );
 
     if (result.rows.length > 0) {
       return result.rows[0];
     } else {
-      console.log("Model - No lens found with PLU:", plu);
+      console.log(`Model - No item found with PLU: ${plu} in ${tableName}`);
       return null;
     }
   } catch (err) {
-    console.error("Chyba při načítání informací o čočce:", err);
+    console.error("Chyba při načítání informací z katalogu:", err);
     throw err;
   }
 }
