@@ -226,9 +226,9 @@ export async function searchInStoreFromDB(
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
                  LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
-                 INNER JOIN catalog_lens cl ON cl.id = sf.catalog_cl_id
+                 INNER JOIN catalog_cl cl ON cl.id = sf.catalog_cl_id
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
-                 ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
+                 ORDER BY sf.plu ASC LIMIT $3 OFFSET $4`;
       }
     }
   }
@@ -251,7 +251,6 @@ export async function searchInStoreFromDB(
 
     const totalCount = rows[0]?.total ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
-    console.log(items);
     return {
       items, // každý item už obsahuje supplier_nick
       totalCount,
@@ -369,12 +368,12 @@ export async function putInMultipleStoreDB(
   items,
   store_id,
 ) {
-  console.log("Model - putInMultipleStoreDB called with:", {
-    branch_id,
-    organization_id,
-    items,
-    store_id,
-  });
+  // console.log("Model - putInMultipleStoreDB called with:", {
+  //   branch_id,
+  //   organization_id,
+  //   items,
+  //   store_id,
+  // });
 
   const storeTableName =
     store_id === 1
@@ -424,9 +423,9 @@ export async function putInMultipleStoreDB(
       itemsArray.push({
         //STORE - ALL
         plu: items[`plu${suffix}`] || "",
-        price: items[`price${suffix}`] || 0,
-        price_buy: items[`price_buy${suffix}`] || 0,
-        quantity: items[`quantity${suffix}`] || 1,
+        price: items[`price${suffix}`] ? Number(items[`price${suffix}`]) : 0,
+        price_buy: items[`price_buy${suffix}`] ? Number(items[`price_buy${suffix}`]) : 0,
+        quantity: items[`quantity${suffix}`] ? Number(items[`quantity${suffix}`]) : 1,
 
         //STORE 1 a 2 - FRAMES a SUNGLASSES
 
@@ -439,17 +438,18 @@ export async function putInMultipleStoreDB(
         type: items[`type${suffix}`] || "",
 
         //STORE 3,4 - LENS, CONTACT LENS
-        catalog_lens_id: items[`id${suffix}`] || "",
-        catalog_cl_id: items[`id${suffix}`] || "",
+        catalog_lens_id: items[`id${suffix}`] ? Number(items[`id${suffix}`]) : null,
+        catalog_cl_id: items[`id${suffix}`] ? Number(items[`id${suffix}`]) : null,
         name: items[`name${suffix}`] || "",
-        sph: items[`sph${suffix}`] || 0,
-        cyl: items[`cyl${suffix}`] || 0,
-        ax: items[`ax${suffix}`] || 0,
+        sph: items[`sph${suffix}`] ? Number(items[`sph${suffix}`]) : 0,
+        cyl: items[`cyl${suffix}`] ? Number(items[`cyl${suffix}`]) : 0,
+        ax: items[`ax${suffix}`] ? Number(items[`ax${suffix}`]) : 0,
         code: items[`code${suffix}`] || "",
+        vat_type_id: items[`vat_type_id${suffix}`] ? Number(items[`vat_type_id${suffix}`]) : null,
 
         //STORE 6 - GOODS
         model: items[`model${suffix}`] || "",
-        vat_rate: items[`vat_rate${suffix}`] || 0,
+        vat_rate_id: items[`vat_rate_id${suffix}`] ? Number(items[`vat_rate_id${suffix}`]) : null,
         param: items[`param${suffix}`] || "",
         uom: items[`uom${suffix}`] || "",
         tags: items[`tags${suffix}`] || "",
@@ -485,8 +485,8 @@ export async function putInMultipleStoreDB(
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
 
   const insertCLSQL = `
-    INSERT INTO ${storeTableName} (catalog_cl_id, branch_id, organization_id, plu, sph, cyl, ax, price, store_item_id, supplier_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
+    INSERT INTO ${storeTableName} (catalog_cl_id, branch_id, organization_id, plu, sph, cyl, ax, price, vat_type_id, store_item_id, supplier_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
 
   const insertGoodsSQL = `
     INSERT INTO ${storeTableName} (store_item_id, branch_id, organization_id, plu, model, size, color, uom, tags, vat_type_id, price, supplier_id)
@@ -548,7 +548,7 @@ export async function putInMultipleStoreDB(
 
       // 3. Vlož nebo aktualizuj store_frames
       const insertSQL =
-        store_id === 1
+        store_id === 1 || store_id === 2
           ? insertFrameSQL
           : store_id === 3
             ? insertLensSQL
@@ -558,7 +558,7 @@ export async function putInMultipleStoreDB(
                 ? insertGoodsSQL
                 : null;
       const insertValues =
-        store_id === 1
+        store_id === 1 || store_id === 2
           ? [
               store_item_id,
               organization_id,
@@ -598,6 +598,7 @@ export async function putInMultipleStoreDB(
                   item.cyl,
                   item.ax,
                   item.price,
+                  item.vat_type_id,
                   store_item_id,
                   supplier_id,
                 ]
@@ -612,7 +613,7 @@ export async function putInMultipleStoreDB(
                     item.color,
                     item.uom,
                     item.tags,
-                    item.vat_rate,
+                    item.vat_type_id,
                     item.price,
                     supplier_id,
                   ]
@@ -661,11 +662,12 @@ export async function getCatalogInfoFromDB(plu, catalogType) {
       StoreCL: "catalog_cl",
       StoreSoldrops: "catalog_soldrops",
     };
-
+    console.log("Model - getCatalogInfoFromDB called with PLU:", plu, "and catalogType:", catalogType);
     const tableName = catalogTables[catalogType] || "catalog_lens";
+    console.log("Model - Using table:", tableName);
     const result = await pool.query(
       `SELECT cc.*, c.nick AS supplier_nick
-   FROM catalog_cl cc
+   FROM ${tableName} cc
    LEFT JOIN contacts c ON c.id = cc.supplier_id
    WHERE cc.plu = $1`,
       [plu],
