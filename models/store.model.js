@@ -229,6 +229,15 @@ export async function searchInStoreFromDB(
                  INNER JOIN catalog_cl cl ON cl.id = sf.catalog_cl_id
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu ASC LIMIT $3 OFFSET $4`;
+      } else {
+        // sklad solddrops
+        SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_soldrops_name
+                  FROM ${storeTableName} sf
+                  LEFT JOIN contacts c ON c.id = sf.supplier_id
+                  LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id
+                  INNER JOIN catalog_soldrops cl ON cl.id = sf.catalog_soldrops_id
+                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
+                  ORDER BY sf.plu ASC LIMIT $3 OFFSET $4`;
       }
     }
   }
@@ -348,7 +357,7 @@ export async function newTransactionInsertToDB(transaction) {
 export async function ordersListFromDB(branch_id) {
   try {
     const result = await pool.query(
-      "SELECT * FROM orders WHERE branch_id = $1",
+      "SELECT o.*,  c.name,  c.surname,  c.degree_before,  c.degree_after FROM orders o LEFT JOIN clients_branches cb ON cb.client_id = o.client_id AND cb.branch_id = o.branch_id LEFT JOIN clients c ON c.id = cb.client_id WHERE o.branch_id = $1", 
       [branch_id],
     );
     if (result.rows.length > 0) {
@@ -424,8 +433,12 @@ export async function putInMultipleStoreDB(
         //STORE - ALL
         plu: items[`plu${suffix}`] || "",
         price: items[`price${suffix}`] ? Number(items[`price${suffix}`]) : 0,
-        price_buy: items[`price_buy${suffix}`] ? Number(items[`price_buy${suffix}`]) : 0,
-        quantity: items[`quantity${suffix}`] ? Number(items[`quantity${suffix}`]) : 1,
+        price_buy: items[`price_buy${suffix}`]
+          ? Number(items[`price_buy${suffix}`])
+          : 0,
+        quantity: items[`quantity${suffix}`]
+          ? Number(items[`quantity${suffix}`])
+          : 1,
 
         //STORE 1 a 2 - FRAMES a SUNGLASSES
 
@@ -437,19 +450,30 @@ export async function putInMultipleStoreDB(
         material: items[`material${suffix}`] || "",
         type: items[`type${suffix}`] || "",
 
-        //STORE 3,4 - LENS, CONTACT LENS
-        catalog_lens_id: items[`id${suffix}`] ? Number(items[`id${suffix}`]) : null,
-        catalog_cl_id: items[`id${suffix}`] ? Number(items[`id${suffix}`]) : null,
+        //STORE 3,4,5 - LENS, CONTACT LENS a SOLDDROPS
+        catalog_lens_id: items[`id${suffix}`]
+          ? Number(items[`id${suffix}`])
+          : null,
+        catalog_cl_id: items[`id${suffix}`]
+          ? Number(items[`id${suffix}`])
+          : null,
+        catalog_soldrops_id: items[`id${suffix}`]
+          ? Number(items[`id${suffix}`])
+          : null,
         name: items[`name${suffix}`] || "",
         sph: items[`sph${suffix}`] ? Number(items[`sph${suffix}`]) : 0,
         cyl: items[`cyl${suffix}`] ? Number(items[`cyl${suffix}`]) : 0,
         ax: items[`ax${suffix}`] ? Number(items[`ax${suffix}`]) : 0,
         code: items[`code${suffix}`] || "",
-        vat_type_id: items[`vat_type_id${suffix}`] ? Number(items[`vat_type_id${suffix}`]) : null,
+        vat_type_id: items[`vat_type_id${suffix}`]
+          ? Number(items[`vat_type_id${suffix}`])
+          : null,
 
         //STORE 6 - GOODS
         model: items[`model${suffix}`] || "",
-        vat_rate_id: items[`vat_rate_id${suffix}`] ? Number(items[`vat_rate_id${suffix}`]) : null,
+        vat_rate_id: items[`vat_rate_id${suffix}`]
+          ? Number(items[`vat_rate_id${suffix}`])
+          : null,
         param: items[`param${suffix}`] || "",
         uom: items[`uom${suffix}`] || "",
         tags: items[`tags${suffix}`] || "",
@@ -487,6 +511,10 @@ export async function putInMultipleStoreDB(
   const insertCLSQL = `
     INSERT INTO ${storeTableName} (catalog_cl_id, branch_id, organization_id, plu, sph, cyl, ax, price, vat_type_id, store_item_id, supplier_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
+
+  const insertSoldropsSQL = `
+    INSERT INTO ${storeTableName} (catalog_soldrops_id, branch_id, organization_id, plu, price, vat_type_id, store_item_id, supplier_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
 
   const insertGoodsSQL = `
     INSERT INTO ${storeTableName} (store_item_id, branch_id, organization_id, plu, model, size, color, uom, tags, vat_type_id, price, supplier_id)
@@ -554,9 +582,11 @@ export async function putInMultipleStoreDB(
             ? insertLensSQL
             : store_id === 4
               ? insertCLSQL
-              : store_id === 6
-                ? insertGoodsSQL
-                : null;
+              : store_id === 5
+                ? insertSoldropsSQL
+                : store_id === 6
+                  ? insertGoodsSQL
+                  : null;
       const insertValues =
         store_id === 1 || store_id === 2
           ? [
@@ -602,28 +632,39 @@ export async function putInMultipleStoreDB(
                   store_item_id,
                   supplier_id,
                 ]
-              : store_id === 6
+              : store_id === 5
                 ? [
-                    store_item_id,
+                    item.catalog_soldrops_id,
                     branch_id,
                     organization_id,
                     newPlu,
-                    item.model,
-                    item.size,
-                    item.color,
-                    item.uom,
-                    item.tags,
-                    item.vat_type_id,
                     item.price,
+                    item.vat_type_id,
+                    store_item_id,
                     supplier_id,
                   ]
-                : [];
+                : store_id === 6
+                  ? [
+                      store_item_id,
+                      branch_id,
+                      organization_id,
+                      newPlu,
+                      item.model,
+                      item.size,
+                      item.color,
+                      item.uom,
+                      item.tags,
+                      item.vat_type_id,
+                      item.price,
+                      supplier_id,
+                    ]
+                  : [];
 
       const result = await pool.query(insertSQL, insertValues);
 
       pluArray.push(newPlu);
       console.log("Inserted/Updated frame with PLU:", newPlu);
-
+      console.log("Quantity:", item.quantity);
       // 4. Vytvoř batch záznam
       await pool.query(batchSQL, [
         store_document_id,
@@ -662,7 +703,12 @@ export async function getCatalogInfoFromDB(plu, catalogType) {
       StoreCL: "catalog_cl",
       StoreSoldrops: "catalog_soldrops",
     };
-    console.log("Model - getCatalogInfoFromDB called with PLU:", plu, "and catalogType:", catalogType);
+    console.log(
+      "Model - getCatalogInfoFromDB called with PLU:",
+      plu,
+      "and catalogType:",
+      catalogType,
+    );
     const tableName = catalogTables[catalogType] || "catalog_lens";
     console.log("Model - Using table:", tableName);
     const result = await pool.query(
