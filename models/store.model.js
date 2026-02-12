@@ -743,3 +743,55 @@ export async function getVatListFromDB() {
     throw err;
   }
 }
+
+export async function getPluItemFromDB(plu, branch_id) {
+  // Projde všechny tabulky store a najde položku podle PLU
+  const tables = [
+    // "store_frames",
+    // "store_sunglasses",
+    // "store_lens",
+    // "store_cl",
+    // "store_soldrops",
+    "store_goods",
+  ];
+
+  try {
+    for (const table of tables) {
+      const sql = `SELECT sg.model, sg.size, sg.color, sg.uom, sg.price, sg.vat_type_id, vr.rate 
+                   FROM ${table} sg 
+                   LEFT JOIN vat_rates vr ON vr.id = sg.vat_type_id 
+                   WHERE sg.plu = $1 AND sg.branch_id = $2 LIMIT 1`;
+      const result = await pool.query(sql, [plu, branch_id]);
+
+      if (result.rows.length > 0) {
+        return { success: true, item: result.rows[0] };
+      }
+    }
+
+    return { success: false, message: "Položka s daným PLU nebyla nalezena" };
+  } catch (err) {
+    console.error("Chyba při načítání položky podle PLU:", err);
+    throw err;
+  }
+}
+
+export async function getPluFrameFromDB(plu, branch_id) {
+  try {
+    const sql = `SELECT sf.*, c.nick AS supplier_nick
+                 FROM store_frames sf
+                 LEFT JOIN contacts c ON c.id = sf.supplier_id
+                 WHERE sf.plu = $1 AND sf.branch_id = $2 
+                 LIMIT 1`;
+    const result = await pool.query(sql, [plu, branch_id]);
+
+    if (result.rows.length > 0) {
+      return { success: true, frame: result.rows[0] };
+    }
+
+    return { success: false, message: "Obruba s daným PLU nebyla nalezena" };
+  } catch (err) {
+    console.error("Chyba při načítání obruby podle PLU:", err);
+    throw err;
+  }
+}
+

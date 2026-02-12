@@ -10,6 +10,8 @@ import { putInStore } from "../controllers/store.controller.js";
 import { putInMultipleStore } from "../controllers/store.controller.js";
 import { getCatalogInfo } from "../controllers/store.controller.js";
 import { getVatList } from "../controllers/store.controller.js";
+import { getPluItem } from "../controllers/store.controller.js";
+import { getPluFrame } from "../controllers/store.controller.js";
 
 const router = express.Router();
 
@@ -20,6 +22,10 @@ router.get("/search", authenticateToken, searchInStore);
 router.get("/suppliers-list", authenticateToken, searchInContacts);
 
 router.get("/vat-list", authenticateToken, getVatList);
+
+router.get("/plu-item", authenticateToken, getPluItem);
+
+router.get("/plu-frame", authenticateToken, getPluFrame);
 
 router.post("/update", authenticateToken, updateInStore);
 
