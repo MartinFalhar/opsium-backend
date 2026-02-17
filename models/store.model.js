@@ -795,3 +795,42 @@ export async function getPluFrameFromDB(plu, branch_id) {
   }
 }
 
+export async function getPluServiceFromDB(plu, branch_id) {
+  try {
+    const sql = `SELECT asv.*, vr.rate
+                 FROM agenda_services asv
+                 LEFT JOIN vat_rates vr ON vr.id = asv.vat_type
+                 WHERE asv.plu = $1 AND asv.branch_id = $2
+                 LIMIT 1`;
+    const result = await pool.query(sql, [plu, branch_id]);
+
+    if (result.rows.length > 0) {
+      return { success: true, service: result.rows[0] };
+    }
+
+    return { success: false, message: "Služba s daným PLU nebyla nalezena" };
+  } catch (err) {
+    console.error("Chyba při načítání služby podle PLU:", err);
+    throw err;
+  }
+}
+
+export async function getPluLensesFromDB(plu, branch_id) {
+  try {
+    const sql = `SELECT sl.*, 0 AS rate
+                 FROM store_lens sl
+                 WHERE sl.plu = $1 AND sl.branch_id = $2
+                 LIMIT 1`;
+    const result = await pool.query(sql, [plu, branch_id]);
+
+    if (result.rows.length > 0) {
+      return { success: true, lenses: result.rows[0] };
+    }
+
+    return { success: false, message: "Brýlové čočky s daným PLU nebyly nalezeny" };
+  } catch (err) {
+    console.error("Chyba při načítání brýlových čoček podle PLU:", err);
+    throw err;
+  }
+}
+
