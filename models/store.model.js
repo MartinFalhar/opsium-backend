@@ -203,38 +203,78 @@ export async function searchInStoreFromDB(
   let SearchSQL = "";
   //sklady frames, sunglasses a goods
   if (store == 1 || store == 2 || store == 6) {
-    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved 
+    SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, COALESCE(sb.quantity_available, 0) AS quantity_available, COALESCE(sr.quantity_reserved, 0) AS quantity_reserved
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
-                 LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
+                 LEFT JOIN (
+                   SELECT store_item_id, SUM(quantity_received - quantity_sold)::int AS quantity_available
+                   FROM store_batches
+                   GROUP BY store_item_id
+                 ) sb ON sb.store_item_id = sf.store_item_id
+                 LEFT JOIN (
+                   SELECT sb.store_item_id, SUM(sr.quantity)::int AS quantity_reserved
+                   FROM store_reservations sr
+                   INNER JOIN store_batches sb ON sb.id = sr.store_batch_id
+                   GROUP BY sb.store_item_id
+                 ) sr ON sr.store_item_id = sf.store_item_id
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
   } else {
     // sklad lens
     if (store == 3) {
-      SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_lens_name 
+      SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, COALESCE(sb.quantity_available, 0) AS quantity_available, COALESCE(sr.quantity_reserved, 0) AS quantity_reserved, cl.name AS catalog_lens_name 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
-                 LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
+                 LEFT JOIN (
+                   SELECT store_item_id, SUM(quantity_received - quantity_sold)::int AS quantity_available
+                   FROM store_batches
+                   GROUP BY store_item_id
+                 ) sb ON sb.store_item_id = sf.store_item_id
+                 LEFT JOIN (
+                   SELECT sb.store_item_id, SUM(sr.quantity)::int AS quantity_reserved
+                   FROM store_reservations sr
+                   INNER JOIN store_batches sb ON sb.id = sr.store_batch_id
+                   GROUP BY sb.store_item_id
+                 ) sr ON sr.store_item_id = sf.store_item_id
                  INNER JOIN catalog_lens cl ON cl.id = sf.catalog_lens_id
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu DESC LIMIT $3 OFFSET $4`;
     } else {
       // sklad contact lenses
       if (store == 4) {
-        SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_cl_name 
+        SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, COALESCE(sb.quantity_available, 0) AS quantity_available, COALESCE(sr.quantity_reserved, 0) AS quantity_reserved, cl.name AS catalog_cl_name 
                  FROM ${storeTableName} sf 
                  LEFT JOIN contacts c ON c.id = sf.supplier_id 
-                 LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id 
+                 LEFT JOIN (
+                   SELECT store_item_id, SUM(quantity_received - quantity_sold)::int AS quantity_available
+                   FROM store_batches
+                   GROUP BY store_item_id
+                 ) sb ON sb.store_item_id = sf.store_item_id
+                 LEFT JOIN (
+                   SELECT sb.store_item_id, SUM(sr.quantity)::int AS quantity_reserved
+                   FROM store_reservations sr
+                   INNER JOIN store_batches sb ON sb.id = sr.store_batch_id
+                   GROUP BY sb.store_item_id
+                 ) sr ON sr.store_item_id = sf.store_item_id
                  INNER JOIN catalog_cl cl ON cl.id = sf.catalog_cl_id
                  WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                  ORDER BY sf.plu ASC LIMIT $3 OFFSET $4`;
       } else {
         // sklad solddrops
-        SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, sis.quantity_available, sis.quantity_reserved, cl.name AS catalog_soldrops_name
+        SearchSQL = `SELECT sf.*, c.nick AS supplier_nick, COALESCE(sb.quantity_available, 0) AS quantity_available, COALESCE(sr.quantity_reserved, 0) AS quantity_reserved, cl.name AS catalog_soldrops_name
                   FROM ${storeTableName} sf
                   LEFT JOIN contacts c ON c.id = sf.supplier_id
-                  LEFT JOIN store_item_stock sis ON sis.store_item_id = sf.store_item_id
+                  LEFT JOIN (
+                    SELECT store_item_id, SUM(quantity_received - quantity_sold)::int AS quantity_available
+                    FROM store_batches
+                    GROUP BY store_item_id
+                  ) sb ON sb.store_item_id = sf.store_item_id
+                  LEFT JOIN (
+                    SELECT sb.store_item_id, SUM(sr.quantity)::int AS quantity_reserved
+                    FROM store_reservations sr
+                    INNER JOIN store_batches sb ON sb.id = sr.store_batch_id
+                    GROUP BY sb.store_item_id
+                  ) sr ON sr.store_item_id = sf.store_item_id
                   INNER JOIN catalog_soldrops cl ON cl.id = sf.catalog_soldrops_id
                   WHERE CAST(ROW(sf.*) AS TEXT) ILIKE $1 AND sf.branch_id = $2
                   ORDER BY sf.plu ASC LIMIT $3 OFFSET $4`;
@@ -260,6 +300,7 @@ export async function searchInStoreFromDB(
 
     const totalCount = rows[0]?.total ?? 0;
     const totalPages = Math.ceil(totalCount / limit);
+    // console.log(items);
     return {
       items, // každý item už obsahuje supplier_nick
       totalCount,
@@ -303,22 +344,29 @@ export async function getContactsListFromDB(organization_id, query) {
 export async function newOrderInsertToDB(order) {
   try {
     const {
-      client_id = `${order.client_id}`,
-      branch_id = `${order.branch_id}`,
-      member_id = `${order.member_id}`,
-      attrib = `${order.attrib}`,
-      content = `${order.content}`,
-      note = `${order.note}`,
+      client_id,
+      branch_id,
+      member_id,
+      status = "draft",
     } = order || {};
+
+
+
+    if (!client_id || !branch_id || !member_id) {
+      throw new Error("Chybí client_id, branch_id nebo member_id.");
+    }
+
     await pool.query("BEGIN");
 
-    const userResult = await pool.query(
-      "INSERT INTO invoices (client_id, branch_id, member_id, attrib, content, note) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [client_id, branch_id, member_id, attrib, content, note],
+    const orderResult = await pool.query(
+      `INSERT INTO orders (client_id, branch_id, member_id, status)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, year, number, branch_id`,
+      [client_id, branch_id, member_id, status],
     );
-    const newInvoiceID = userResult.rows[0].id;
+
     await pool.query("COMMIT");
-    return newInvoiceID;
+    return orderResult.rows[0];
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;
