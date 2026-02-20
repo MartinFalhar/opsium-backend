@@ -10,6 +10,8 @@ import { getCatalogInfoFromDB } from "../models/store.model.js";
 import { getVatListFromDB } from "../models/store.model.js";
 import { getPluItemFromDB } from "../models/store.model.js";
 import { getPluFrameFromDB } from "../models/store.model.js";
+import { getPluServiceFromDB } from "../models/store.model.js";
+import { getPluLensesFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // branch_id bereme z JWT tokenu
@@ -269,6 +271,48 @@ export async function getPluFrame(req, res) {
     }
   } catch (error) {
     console.error("Controller - getPluFrame error:", error);
+    res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function getPluService(req, res) {
+  const branch_id = req.user.branch_id;
+  const plu = req.query.plu;
+
+  if (!plu) {
+    return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
+  }
+
+  try {
+    const result = await getPluServiceFromDB(plu, branch_id);
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(404).json(result);
+    }
+  } catch (error) {
+    console.error("Controller - getPluService error:", error);
+    res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function getPluLenses(req, res) {
+  const branch_id = req.user.branch_id;
+  const plu = req.query.plu;
+
+  if (!plu) {
+    return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
+  }
+
+  try {
+    const result = await getPluLensesFromDB(plu, branch_id);
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(404).json(result);
+    }
+  } catch (error) {
+    console.error("Controller - getPluLenses error:", error);
     res.status(500).json({ success: false, message: "Chyba serveru" });
   }
 }
