@@ -9,7 +9,7 @@ export async function loadClientsFromDB(body) {
     console.log("BCKD loadClientsFromDB body:", body.branch_id);
     const result = await pool.query(
       "SELECT c.* FROM clients c JOIN clients_branches bc ON c.id = bc.client_id WHERE bc.branch_id = $1",
-      [body.branch_id]
+      [body.branch_id],
     ); // Add filtering based on body if needed
     if (result.rows.length > 0) {
       return result.rows;
@@ -26,7 +26,7 @@ export async function existClient(name, surname, birth_date) {
   try {
     const result = await pool.query(
       "SELECT name, surname, birth_date FROM clients WHERE name = $1 AND surname = $2 AND birth_date = $3",
-      [name, surname, birth_date]
+      [name, surname, birth_date],
     );
     console.log("Existence klienta:", result.rows.length > 0);
     return result.rows.length > 0;
@@ -46,15 +46,20 @@ export async function insertNewClient(client) {
       birth_date,
       organization_id,
     } = client || {};
-
+    console.log("BCKD insertNewClient called with:", client);
     await pool.query("BEGIN");
-
+    //Nejdříve vložíme klienta do tabulky clients a získáme jeho ID, které potřebujeme pro vložení záznamu do tabulky clients_branches
     const clientResult = await pool.query(
       "INSERT INTO clients (degree_before, name, surname, degree_after, birth_date, organization_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [degree_before, name, surname, degree_after, birth_date, organization_id]
+      [degree_before, name, surname, degree_after, birth_date, organization_id],
     );
     const newClientID = clientResult.rows[0].id;
     console.log("BCKD New Client ID:", newClientID);
+    //Nyní vložíme záznam do tabulky clients_branches, abychom přiřadili klienta k pobočce
+    await pool.query(
+      "INSERT INTO clients_branches (client_id, branch_id) VALUES ($1, $2)",
+      [newClientID, client.branch_id],
+    );
     await pool.query("COMMIT");
     return newClientID;
   } catch (err) {
@@ -78,7 +83,7 @@ export async function saveExaminationToDB(newExamDataSet) {
 
     const existingExamination = await pool.query(
       "SELECT id FROM examinations WHERE client_id = $1 AND name = $2",
-      [client_id, name]
+      [client_id, name],
     );
 
     await pool.query("BEGIN");
@@ -96,7 +101,7 @@ export async function saveExaminationToDB(newExamDataSet) {
     await pool.query("BEGIN");
     const saveExamination = await pool.query(
       "INSERT INTO examinations (client_id, branch_id, member_id, name, data) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [client_id, branch_id, member_id, name, data]
+      [client_id, branch_id, member_id, name, data],
     );
 
     await pool.query("COMMIT");
@@ -111,16 +116,12 @@ export async function saveExaminationToDB(newExamDataSet) {
 export async function loadExamsListFromDB(loadInfo) {
   try {
     const { client_id, branch_id } = loadInfo || {};
-    console.log(
-      "BCKD MODUL loadExamsList called with:",
-      client_id,
-      branch_id
-    );
+    console.log("BCKD MODUL loadExamsList called with:", client_id, branch_id);
     await pool.query("BEGIN");
 
     const examsList = await pool.query(
       "SELECT name FROM examinations  WHERE client_id = $1 AND branch_id = $2 ORDER BY name DESC",
-      [client_id, branch_id]
+      [client_id, branch_id],
     );
 
     await pool.query("COMMIT");
@@ -139,13 +140,13 @@ export async function loadExaminationFromDB(loadInfo) {
       "BCKD MODUL loadExamination called with:",
       client_id,
       branch_id,
-      name_id
+      name_id,
     );
     await pool.query("BEGIN");
 
     const examination = await pool.query(
       "SELECT data FROM examinations  WHERE client_id = $1 AND branch_id = $2 AND name = $3",
-      [client_id, branch_id, name_id]
+      [client_id, branch_id, name_id],
     );
 
     await pool.query("COMMIT");
