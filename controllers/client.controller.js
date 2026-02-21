@@ -2,6 +2,7 @@ import {
   loadClientsFromDB,
   insertNewClient,
   existClient,
+  findClient,
   saveExaminationToDB,
   loadExamsListFromDB,
   loadExaminationFromDB,
@@ -50,7 +51,10 @@ export async function saveExamination(req, res) {
 
     //Nový uživatel neexistuje, pokračujeme v registraci
     // Přidáme branch_id z JWT tokenu
-    const examSave = await saveExaminationToDB({ ...req.body, branch_id: req.user.branch_id });
+    const examSave = await saveExaminationToDB({
+      ...req.body,
+      branch_id: req.user.branch_id,
+    });
     res.json(examSave);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
@@ -61,7 +65,10 @@ export async function saveExamination(req, res) {
 export async function loadExamsList(req, res) {
   try {
     // Přidáme branch_id z JWT tokenu
-    const examsList = await loadExamsListFromDB({ ...req.body, branch_id: req.user.branch_id });
+    const examsList = await loadExamsListFromDB({
+      ...req.body,
+      branch_id: req.user.branch_id,
+    });
     res.json(examsList);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
@@ -72,10 +79,29 @@ export async function loadExamsList(req, res) {
 export async function loadExamination(req, res) {
   try {
     // Přidáme branch_id z JWT tokenu
-    const examination = await loadExaminationFromDB({ ...req.body, branch_id: req.user.branch_id });
+    const examination = await loadExaminationFromDB({
+      ...req.body,
+      branch_id: req.user.branch_id,
+    });
     res.json(examination);
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");
+  }
+}
+
+export async function findClientBySurname(req, res) {
+  try {
+    const { surname } = req.body || {};
+
+    if (!surname || !surname.trim()) {
+      return res.status(400).json({ message: "Příjmení je povinné." });
+    }
+
+    const clients = await findClient(surname.trim());
+    res.json({ exists: clients.length > 0, clients });
+  } catch (error) {
+    console.error("Chyba při hledání klienta:", error);
+    res.status(500).json({ message: "Nastala chyba při hledání klienta." });
   }
 }

@@ -36,6 +36,20 @@ export async function existClient(name, surname, birth_date) {
   }
 }
 
+export async function findClient(surname) {
+  try {
+    const result = await pool.query(
+      "SELECT id, degree_before, name, surname, degree_after, birth_date FROM clients WHERE LOWER(surname) = LOWER($1) ORDER BY id DESC",
+      [surname],
+    );
+
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při hledání klienta:", err);
+    throw err;
+  }
+}
+
 export async function insertNewClient(client) {
   try {
     const {

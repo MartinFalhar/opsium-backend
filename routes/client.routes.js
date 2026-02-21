@@ -5,6 +5,7 @@ import {
   saveExamination,
   loadExamsList,
   loadExamination,
+  findClientBySurname,
 } from "../controllers/client.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 
@@ -19,5 +20,7 @@ router.post("/save_examination", authenticateToken, saveExamination);
 router.post("/load_exams_list", authenticateToken, loadExamsList);
 
 router.post("/load_examination", authenticateToken, loadExamination);
+
+router.post("/find_client", authenticateToken, findClientBySurname);
 
 export default router;
