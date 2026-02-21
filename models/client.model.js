@@ -36,11 +36,12 @@ export async function existClient(name, surname, birth_date) {
   }
 }
 
-export async function findClient(surname) {
+export async function findClient(searchTerm) {
   try {
+    const normalizedTerm = (searchTerm || "").trim();
     const result = await pool.query(
-      "SELECT id, degree_before, name, surname, degree_after, birth_date FROM clients WHERE LOWER(surname) = LOWER($1) ORDER BY id DESC",
-      [surname],
+      "SELECT id, degree_before, name, surname, degree_after, birth_date, street, city, post_code, email, phone FROM clients WHERE LOWER(surname) LIKE LOWER($1) OR CAST(id AS TEXT) LIKE $1 ORDER BY id DESC",
+      [`%${normalizedTerm}%`],
     );
 
     return result.rows;

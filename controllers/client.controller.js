@@ -38,7 +38,11 @@ export async function createClient(req, res) {
 
     //Nový uživatel neexistuje, pokračujeme v registraci
     // Přidáme branch_id z JWT tokenu
-    await insertNewClient({ ...req.body, branch_id: req.user.branch_id });
+    const newClientId = await insertNewClient({
+      ...req.body,
+      branch_id: req.user.branch_id,
+    });
+    return res.status(201).json({ id: newClientId });
   } catch (error) {
     console.error("Chyba při registraci klienta:", error);
     res.status(500).send("Nastala chyba při registraci klienta.");

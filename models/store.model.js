@@ -343,14 +343,14 @@ export async function getContactsListFromDB(organization_id, query) {
 
 export async function newOrderInsertToDB(order) {
   try {
-    const {
+    const { client_id, branch_id, member_id, status = "draft" } = order || {};
+
+    console.log("Model - newOrderInsertToDB called with:", {
       client_id,
       branch_id,
       member_id,
-      status = "draft",
-    } = order || {};
-
-
+      status,
+    });
 
     if (!client_id || !branch_id || !member_id) {
       throw new Error("Chybí client_id, branch_id nebo member_id.");
@@ -405,7 +405,7 @@ export async function newTransactionInsertToDB(transaction) {
 export async function ordersListFromDB(branch_id) {
   try {
     const result = await pool.query(
-      "SELECT o.*,  c.name,  c.surname,  c.degree_before,  c.degree_after FROM orders o LEFT JOIN clients_branches cb ON cb.client_id = o.client_id AND cb.branch_id = o.branch_id LEFT JOIN clients c ON c.id = cb.client_id WHERE o.branch_id = $1", 
+      "SELECT o.*,  c.name,  c.surname,  c.degree_before,  c.degree_after FROM orders o LEFT JOIN clients_branches cb ON cb.client_id = o.client_id AND cb.branch_id = o.branch_id LEFT JOIN clients c ON c.id = cb.client_id WHERE o.branch_id = $1",
       [branch_id],
     );
     if (result.rows.length > 0) {
@@ -415,6 +415,83 @@ export async function ordersListFromDB(branch_id) {
     }
   } catch (err) {
     console.error("Chyba při načítání zakázek:", err);
+    throw err;
+  }
+}
+
+export async function loadOrderItemsForModalFromDB(order_id, branch_id) {
+  try {
+    const sql = `
+      SELECT
+        oi.id,
+        oi.order_id,
+        oi.item_type,
+        oi.store_item_id,
+        oi.quantity,
+        oi.unit_purchase_price,
+        oi.unit_sale_price,
+        oi.specification_id,
+        oi."group",
+        oi.store_batch_id,
+        oi.movement_type,
+        oi.item_status,
+        ols.specs,
+
+        sg.plu AS goods_plu,
+        sg.model AS goods_model,
+        sg.size AS goods_size,
+        sg.color AS goods_color,
+        sg.uom AS goods_uom,
+        sg.price AS goods_price,
+        vg.rate AS goods_rate,
+
+        sf.plu AS frame_plu,
+        sf.collection AS frame_collection,
+        sf.product AS frame_product,
+        sf.color AS frame_color,
+        sf.size AS frame_size,
+        sf.gender AS frame_gender,
+        sf.material AS frame_material,
+        sf.type AS frame_type,
+        sf.price AS frame_price,
+        cf.nick AS frame_supplier_nick,
+
+        sl.plu AS lens_plu,
+        sl.code AS lens_code,
+        sl.sph AS lens_sph,
+        sl.cyl AS lens_cyl,
+        sl.ax AS lens_ax,
+        sl.price AS lens_price,
+
+        asv.plu AS service_plu,
+        asv.name AS service_name,
+        asv.amount AS service_amount,
+        asv.uom AS service_uom,
+        asv.price AS service_price,
+        asv.category AS service_category,
+        asv.note AS service_note,
+        vsv.rate AS service_rate
+      FROM orders_items oi
+      INNER JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN orders_lens_specs ols ON ols.id = oi.specification_id
+      LEFT JOIN store_goods sg ON sg.store_item_id = oi.store_item_id AND sg.branch_id = o.branch_id
+      LEFT JOIN vat_rates vg ON vg.id = sg.vat_type_id
+      LEFT JOIN store_frames sf ON sf.store_item_id = oi.store_item_id AND sf.branch_id = o.branch_id
+      LEFT JOIN contacts cf ON cf.id = sf.supplier_id
+      LEFT JOIN store_lens sl ON sl.store_item_id = oi.store_item_id AND sl.branch_id = o.branch_id
+      LEFT JOIN agenda_services asv
+        ON asv.branch_id = o.branch_id
+       AND asv.plu::text = COALESCE(ols.specs->'entered_plu'->>'service', '')
+      LEFT JOIN vat_rates vsv ON vsv.id = asv.vat_type
+      WHERE oi.order_id = $1
+        AND o.branch_id = $2
+      ORDER BY oi."group" ASC, oi.id ASC
+    `;
+
+    const result = await pool.query(sql, [order_id, branch_id]);
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při načítání položek zakázky:", err);
     throw err;
   }
 }
@@ -792,7 +869,282 @@ export async function getVatListFromDB() {
   }
 }
 
-export async function getPluItemFromDB(plu, branch_id) {
+async function reserveBatchAndCreateOrderItem(
+  storeItemId,
+  salePrice,
+  reservationInfo,
+) {
+  const {
+    order_id,
+    quantity = 1,
+    item_type = "goods",
+    group = 0,
+    specification_id = null,
+    specification = null,
+    movement_type = "SALE",
+    item_status = "ON_STOCK",
+  } = reservationInfo || {};
+
+  const requestedQuantity = Number(quantity);
+  const itemGroup = Number(group);
+
+  if (!order_id) {
+    return { success: false, message: "order_id je povinné" };
+  }
+
+  if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
+    return { success: false, message: "Neplatné quantity" };
+  }
+
+  if (!Number.isFinite(itemGroup) || itemGroup < 0) {
+    return { success: false, message: "Neplatná group" };
+  }
+
+  const batchesSql = `
+    SELECT sb.id, sb.store_document_id, sb.purchase_price, sb.quantity_received, sb.quantity_sold
+    FROM store_batches sb
+    WHERE sb.store_item_id = $1
+    ORDER BY sb.id ASC
+    FOR UPDATE
+  `;
+  const batchesResult = await pool.query(batchesSql, [storeItemId]);
+
+  let selectedBatch = null;
+
+  for (const batch of batchesResult.rows) {
+    const reservedResult = await pool.query(
+      `SELECT COALESCE(SUM(quantity), 0)::int AS quantity_reserved
+       FROM store_reservations
+       WHERE store_batch_id = $1`,
+      [batch.id],
+    );
+
+    const quantityReserved = Number(reservedResult.rows[0]?.quantity_reserved ?? 0);
+    const quantityReceived = Number(batch.quantity_received ?? 0);
+    const quantitySold = Number(batch.quantity_sold ?? 0);
+    const availableQuantity = quantityReceived - quantitySold - quantityReserved;
+
+    if (availableQuantity >= requestedQuantity) {
+      selectedBatch = {
+        ...batch,
+        quantity_reserved: quantityReserved,
+        available_quantity: availableQuantity,
+      };
+      break;
+    }
+  }
+
+  if (!selectedBatch) {
+    return {
+      success: false,
+      message: "Nedostupné množství na skladě pro rezervaci.",
+    };
+  }
+
+  const orderItemInsert = await pool.query(
+    `INSERT INTO orders_items (
+      order_id,
+      item_type,
+      store_item_id,
+      quantity,
+      unit_purchase_price,
+      unit_sale_price,
+      specification_id,
+      "group",
+      store_batch_id,
+      movement_type,
+      item_status
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING id`,
+    [
+      order_id,
+      item_type,
+      storeItemId,
+      requestedQuantity,
+      selectedBatch.purchase_price,
+      salePrice,
+      specification_id,
+      itemGroup,
+      selectedBatch.id,
+      movement_type,
+      item_status,
+    ],
+  );
+  const orderItemId = orderItemInsert.rows[0]?.id;
+
+  let resolvedSpecificationId = specification_id;
+
+  if (!resolvedSpecificationId && specification) {
+    const existingSpecification = await pool.query(
+      `SELECT specification_id
+       FROM orders_items
+       WHERE order_id = $1
+         AND "group" = $2
+         AND specification_id IS NOT NULL
+       ORDER BY id ASC
+       LIMIT 1`,
+      [order_id, itemGroup],
+    );
+
+    if (existingSpecification.rows.length > 0) {
+      resolvedSpecificationId = existingSpecification.rows[0].specification_id;
+    } else {
+      const specInsert = await pool.query(
+        `INSERT INTO orders_lens_specs (order_item_id, specs)
+         VALUES ($1, $2::jsonb)
+         RETURNING id`,
+        [orderItemId, JSON.stringify(specification)],
+      );
+      resolvedSpecificationId = specInsert.rows[0]?.id ?? null;
+    }
+  }
+
+  if (resolvedSpecificationId) {
+    await pool.query(
+      `UPDATE orders_items
+       SET specification_id = $1
+       WHERE id = $2`,
+      [resolvedSpecificationId, orderItemId],
+    );
+  }
+
+  await pool.query(
+    `INSERT INTO store_reservations (store_batch_id, order_id, quantity)
+     VALUES ($1, $2, $3)`,
+    [selectedBatch.id, order_id, requestedQuantity],
+  );
+
+  return {
+    success: true,
+    reservation: {
+      order_item_id: orderItemId,
+      specification_id: resolvedSpecificationId,
+      store_batch_id: selectedBatch.id,
+      store_document_id: selectedBatch.store_document_id,
+      purchase_price: selectedBatch.purchase_price,
+      quantity_reserved: selectedBatch.quantity_reserved,
+      available_quantity: selectedBatch.available_quantity,
+    },
+  };
+}
+
+async function createOrderItemWithoutStock(salePrice, orderItemInfo) {
+  const {
+    order_id,
+    quantity = 1,
+    item_type = "service",
+    group = 0,
+    specification_id = null,
+    specification = null,
+    movement_type = "SALE",
+    item_status = "ON_STOCK",
+  } = orderItemInfo || {};
+
+  const requestedQuantity = Number(quantity);
+  const itemGroup = Number(group);
+
+  if (!order_id) {
+    return { success: false, message: "order_id je povinné" };
+  }
+
+  if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
+    return { success: false, message: "Neplatné quantity" };
+  }
+
+  if (!Number.isFinite(itemGroup) || itemGroup < 0) {
+    return { success: false, message: "Neplatná group" };
+  }
+
+  const orderItemInsert = await pool.query(
+    `INSERT INTO orders_items (
+      order_id,
+      item_type,
+      store_item_id,
+      quantity,
+      unit_purchase_price,
+      unit_sale_price,
+      specification_id,
+      "group",
+      store_batch_id,
+      movement_type,
+      item_status
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING id`,
+    [
+      order_id,
+      item_type,
+      null,
+      requestedQuantity,
+      0,
+      Number(salePrice ?? 0),
+      specification_id,
+      itemGroup,
+      null,
+      movement_type,
+      item_status,
+    ],
+  );
+
+  const orderItemId = orderItemInsert.rows[0]?.id;
+  let resolvedSpecificationId = specification_id;
+
+  if (!resolvedSpecificationId && specification) {
+    const existingSpecification = await pool.query(
+      `SELECT specification_id
+       FROM orders_items
+       WHERE order_id = $1
+         AND "group" = $2
+         AND specification_id IS NOT NULL
+       ORDER BY id ASC
+       LIMIT 1`,
+      [order_id, itemGroup],
+    );
+
+    if (existingSpecification.rows.length > 0) {
+      resolvedSpecificationId = existingSpecification.rows[0].specification_id;
+    } else {
+      const specInsert = await pool.query(
+        `INSERT INTO orders_lens_specs (order_item_id, specs)
+         VALUES ($1, $2::jsonb)
+         RETURNING id`,
+        [orderItemId, JSON.stringify(specification)],
+      );
+      resolvedSpecificationId = specInsert.rows[0]?.id ?? null;
+    }
+  }
+
+  if (resolvedSpecificationId) {
+    await pool.query(
+      `UPDATE orders_items
+       SET specification_id = $1
+       WHERE id = $2`,
+      [resolvedSpecificationId, orderItemId],
+    );
+  }
+
+  return {
+    success: true,
+    order_item_id: orderItemId,
+    specification_id: resolvedSpecificationId,
+  };
+}
+
+export async function getPluItemFromDB(plu, branch_id, reservationInfo = {}) {
+  const {
+    order_id,
+    quantity = 1,
+  } = reservationInfo || {};
+
+  if (!order_id) {
+    return { success: false, message: "order_id je povinné" };
+  }
+
+  if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
+    return { success: false, message: "Neplatné quantity" };
+  }
+
   // Projde všechny tabulky store a najde položku podle PLU
   const tables = [
     // "store_frames",
@@ -804,27 +1156,59 @@ export async function getPluItemFromDB(plu, branch_id) {
   ];
 
   try {
+    await pool.query("BEGIN");
+
+    let foundItem = null;
+
     for (const table of tables) {
-      const sql = `SELECT sg.model, sg.size, sg.color, sg.uom, sg.price, sg.vat_type_id, vr.rate 
+      const sql = `SELECT sg.model, sg.size, sg.color, sg.uom, sg.price, sg.vat_type_id, sg.store_item_id, vr.rate 
                    FROM ${table} sg 
                    LEFT JOIN vat_rates vr ON vr.id = sg.vat_type_id 
                    WHERE sg.plu = $1 AND sg.branch_id = $2 LIMIT 1`;
       const result = await pool.query(sql, [plu, branch_id]);
 
       if (result.rows.length > 0) {
-        return { success: true, item: result.rows[0] };
+        foundItem = result.rows[0];
+        break;
       }
     }
 
-    return { success: false, message: "Položka s daným PLU nebyla nalezena" };
+    if (!foundItem) {
+      await pool.query("COMMIT");
+      return { success: false, message: "Položka s daným PLU nebyla nalezena" };
+    }
+
+    const reserveResult = await reserveBatchAndCreateOrderItem(
+      foundItem.store_item_id,
+      Number(foundItem.price ?? 0),
+      reservationInfo,
+    );
+
+    if (!reserveResult.success) {
+      await pool.query("COMMIT");
+      return reserveResult;
+    }
+
+    await pool.query("COMMIT");
+
+    return {
+      success: true,
+      item: {
+        ...foundItem,
+        ...reserveResult.reservation,
+      },
+    };
   } catch (err) {
+    await pool.query("ROLLBACK");
     console.error("Chyba při načítání položky podle PLU:", err);
     throw err;
   }
 }
 
-export async function getPluFrameFromDB(plu, branch_id) {
+export async function getPluFrameFromDB(plu, branch_id, reservationInfo = null) {
   try {
+    await pool.query("BEGIN");
+
     const sql = `SELECT sf.*, c.nick AS supplier_nick
                  FROM store_frames sf
                  LEFT JOIN contacts c ON c.id = sf.supplier_id
@@ -833,18 +1217,41 @@ export async function getPluFrameFromDB(plu, branch_id) {
     const result = await pool.query(sql, [plu, branch_id]);
 
     if (result.rows.length > 0) {
-      return { success: true, frame: result.rows[0] };
+      const frame = result.rows[0];
+
+      if (reservationInfo?.order_id) {
+        const reserveResult = await reserveBatchAndCreateOrderItem(
+          frame.store_item_id,
+          Number(frame.price ?? 0),
+          reservationInfo,
+        );
+
+        if (!reserveResult.success) {
+          await pool.query("COMMIT");
+          return reserveResult;
+        }
+
+        await pool.query("COMMIT");
+        return { success: true, frame: { ...frame, ...reserveResult.reservation } };
+      }
+
+      await pool.query("COMMIT");
+      return { success: true, frame };
     }
 
+    await pool.query("COMMIT");
     return { success: false, message: "Obruba s daným PLU nebyla nalezena" };
   } catch (err) {
+    await pool.query("ROLLBACK");
     console.error("Chyba při načítání obruby podle PLU:", err);
     throw err;
   }
 }
 
-export async function getPluServiceFromDB(plu, branch_id) {
+export async function getPluServiceFromDB(plu, branch_id, orderItemInfo = null) {
   try {
+    await pool.query("BEGIN");
+
     const sql = `SELECT asv.*, vr.rate
                  FROM agenda_services asv
                  LEFT JOIN vat_rates vr ON vr.id = asv.vat_type
@@ -853,18 +1260,46 @@ export async function getPluServiceFromDB(plu, branch_id) {
     const result = await pool.query(sql, [plu, branch_id]);
 
     if (result.rows.length > 0) {
-      return { success: true, service: result.rows[0] };
+      const service = result.rows[0];
+
+      if (orderItemInfo?.order_id) {
+        const orderItemResult = await createOrderItemWithoutStock(
+          Number(service.price ?? 0),
+          orderItemInfo,
+        );
+
+        if (!orderItemResult.success) {
+          await pool.query("COMMIT");
+          return orderItemResult;
+        }
+
+        await pool.query("COMMIT");
+        return {
+          success: true,
+          service: {
+            ...service,
+            order_item_id: orderItemResult.order_item_id,
+          },
+        };
+      }
+
+      await pool.query("COMMIT");
+      return { success: true, service };
     }
 
+    await pool.query("COMMIT");
     return { success: false, message: "Služba s daným PLU nebyla nalezena" };
   } catch (err) {
+    await pool.query("ROLLBACK");
     console.error("Chyba při načítání služby podle PLU:", err);
     throw err;
   }
 }
 
-export async function getPluLensesFromDB(plu, branch_id) {
+export async function getPluLensesFromDB(plu, branch_id, reservationInfo = null) {
   try {
+    await pool.query("BEGIN");
+
     const sql = `SELECT sl.*, 0 AS rate
                  FROM store_lens sl
                  WHERE sl.plu = $1 AND sl.branch_id = $2
@@ -872,13 +1307,36 @@ export async function getPluLensesFromDB(plu, branch_id) {
     const result = await pool.query(sql, [plu, branch_id]);
 
     if (result.rows.length > 0) {
-      return { success: true, lenses: result.rows[0] };
+      const lenses = result.rows[0];
+
+      if (reservationInfo?.order_id) {
+        const reserveResult = await reserveBatchAndCreateOrderItem(
+          lenses.store_item_id,
+          Number(lenses.price ?? 0),
+          reservationInfo,
+        );
+
+        if (!reserveResult.success) {
+          await pool.query("COMMIT");
+          return reserveResult;
+        }
+
+        await pool.query("COMMIT");
+        return { success: true, lenses: { ...lenses, ...reserveResult.reservation } };
+      }
+
+      await pool.query("COMMIT");
+      return { success: true, lenses };
     }
 
-    return { success: false, message: "Brýlové čočky s daným PLU nebyly nalezeny" };
+    await pool.query("COMMIT");
+    return {
+      success: false,
+      message: "Brýlové čočky s daným PLU nebyly nalezeny",
+    };
   } catch (err) {
+    await pool.query("ROLLBACK");
     console.error("Chyba při načítání brýlových čoček podle PLU:", err);
     throw err;
   }
 }
-

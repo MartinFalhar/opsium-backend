@@ -14,6 +14,7 @@ import { getPluItem } from "../controllers/store.controller.js";
 import { getPluFrame } from "../controllers/store.controller.js";
 import { getPluService } from "../controllers/store.controller.js";
 import { getPluLenses } from "../controllers/store.controller.js";
+import { loadOrderItemsForModal } from "../controllers/store.controller.js";
 
 const router = express.Router();
 
@@ -25,13 +26,13 @@ router.get("/suppliers-list", authenticateToken, searchInContacts);
 
 router.get("/vat-list", authenticateToken, getVatList);
 
-router.get("/plu-item", authenticateToken, getPluItem);
+router.post("/plu-item", authenticateToken, getPluItem);
 
-router.get("/plu-frame", authenticateToken, getPluFrame);
+router.post("/plu-frame", authenticateToken, getPluFrame);
 
-router.get("/plu-service", authenticateToken, getPluService);
+router.post("/plu-service", authenticateToken, getPluService);
 
-router.get("/plu-lenses", authenticateToken, getPluLenses);
+router.post("/plu-lenses", authenticateToken, getPluLenses);
 
 router.post("/update", authenticateToken, updateInStore);
 
@@ -44,6 +45,8 @@ router.post("/new-order", authenticateToken, newOrder);
 router.post("/new-transaction", authenticateToken, newTransaction);
 
 router.post("/orders-list", authenticateToken, ordersList);
+
+router.post("/order-items", authenticateToken, loadOrderItemsForModal);
 
 router.post("/getlens", authenticateToken, getCatalogInfo);
 

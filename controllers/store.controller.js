@@ -12,6 +12,7 @@ import { getPluItemFromDB } from "../models/store.model.js";
 import { getPluFrameFromDB } from "../models/store.model.js";
 import { getPluServiceFromDB } from "../models/store.model.js";
 import { getPluLensesFromDB } from "../models/store.model.js";
+import { loadOrderItemsForModalFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // branch_id bereme z JWT tokenu
@@ -153,6 +154,7 @@ export async function updateInStore(req, res) {
 }
 
 export async function newOrder(req, res) {
+
   try {
     // Přidáme branch_id z JWT tokenu
     const result = await newOrderInsertToDB({
@@ -162,10 +164,13 @@ export async function newOrder(req, res) {
     if (result) {
       res.json(result);
     } else {
-      res.json({ message: "Selhání při nahrávání položek ze skladu." });
+      res.status(500).json({ message: "Nepodařilo se vytvořit novou zakázku." });
     }
   } catch (error) {
-    res.json({ success: false, message: "Chyba serveru" });
+    res.status(500).json({
+      success: false,
+      message: error?.message || "Chyba serveru",
+    });
   }
 }
 
@@ -193,6 +198,22 @@ export async function ordersList(req, res) {
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function loadOrderItemsForModal(req, res) {
+  const order_id = req.body?.order_id;
+
+  if (!order_id) {
+    return res.status(400).json({ success: false, message: "order_id je povinné" });
+  }
+
+  try {
+    const items = await loadOrderItemsForModalFromDB(order_id, req.user.branch_id);
+    return res.json({ success: true, items });
+  } catch (error) {
+    console.error("Controller - loadOrderItemsForModal error:", error);
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
   }
 }
 
@@ -235,14 +256,43 @@ export async function getVatList(req, res) {
 
 export async function getPluItem(req, res) {
   const branch_id = req.user.branch_id;
-  const plu = req.query.plu;
+  const plu = req.body?.plu;
+  const order_id = req.body?.order_id;
+  const quantity = Number(req.body?.quantity ?? 1);
+  const item_type = req.body?.item_type ?? "goods";
+  const group = Number(req.body?.group ?? 0);
+  const specification_id = req.body?.specification_id ?? null;
+  const specification = req.body?.specification ?? null;
+  const movement_type = req.body?.movement_type ?? "SALE";
+  const item_status = req.body?.item_status ?? "ON_STOCK";
 
-  if (!plu) {
+  if (!plu || !String(plu).trim()) {
     return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
+  if (!order_id) {
+    return res.status(400).json({ success: false, message: "order_id je povinné" });
+  }
+
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return res.status(400).json({ success: false, message: "Neplatné quantity" });
+  }
+
+  if (!Number.isFinite(group) || group < 0) {
+    return res.status(400).json({ success: false, message: "Neplatná group" });
+  }
+
   try {
-    const result = await getPluItemFromDB(plu, branch_id);
+    const result = await getPluItemFromDB(String(plu).trim(), branch_id, {
+      order_id,
+      quantity,
+      item_type,
+      group,
+      specification_id,
+      specification,
+      movement_type,
+      item_status,
+    });
     if (result.success) {
       res.json(result);
     } else {
@@ -256,14 +306,34 @@ export async function getPluItem(req, res) {
 
 export async function getPluFrame(req, res) {
   const branch_id = req.user.branch_id;
-  const plu = req.query.plu;
+  const plu = req.body?.plu;
+  const order_id = req.body?.order_id;
+  const quantity = Number(req.body?.quantity ?? 1);
+  const group = Number(req.body?.group ?? 0);
+  const specification_id = req.body?.specification_id ?? null;
+  const specification = req.body?.specification ?? null;
+  const movement_type = req.body?.movement_type ?? "SALE";
+  const item_status = req.body?.item_status ?? "ON_STOCK";
 
-  if (!plu) {
+  if (!plu || !String(plu).trim()) {
     return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   try {
-    const result = await getPluFrameFromDB(plu, branch_id);
+    const reservationInfo = order_id
+      ? {
+          order_id,
+          quantity,
+          item_type: "frame",
+          group,
+          specification_id,
+          specification,
+          movement_type,
+          item_status,
+        }
+      : null;
+
+    const result = await getPluFrameFromDB(String(plu).trim(), branch_id, reservationInfo);
     if (result.success) {
       res.json(result);
     } else {
@@ -277,14 +347,38 @@ export async function getPluFrame(req, res) {
 
 export async function getPluService(req, res) {
   const branch_id = req.user.branch_id;
-  const plu = req.query.plu;
+  const plu = req.body?.plu;
+  const order_id = req.body?.order_id;
+  const quantity = Number(req.body?.quantity ?? 1);
+  const group = Number(req.body?.group ?? 0);
+  const specification_id = req.body?.specification_id ?? null;
+  const specification = req.body?.specification ?? null;
+  const movement_type = req.body?.movement_type ?? "SALE";
+  const item_status = req.body?.item_status ?? "ON_STOCK";
 
-  if (!plu) {
+  if (!plu || !String(plu).trim()) {
     return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   try {
-    const result = await getPluServiceFromDB(plu, branch_id);
+    const orderItemInfo = order_id
+      ? {
+          order_id,
+          quantity,
+          item_type: "service",
+          group,
+          specification_id,
+          specification,
+          movement_type,
+          item_status,
+        }
+      : null;
+
+    const result = await getPluServiceFromDB(
+      String(plu).trim(),
+      branch_id,
+      orderItemInfo,
+    );
     if (result.success) {
       res.json(result);
     } else {
@@ -298,14 +392,38 @@ export async function getPluService(req, res) {
 
 export async function getPluLenses(req, res) {
   const branch_id = req.user.branch_id;
-  const plu = req.query.plu;
+  const plu = req.body?.plu;
+  const order_id = req.body?.order_id;
+  const quantity = Number(req.body?.quantity ?? 1);
+  const group = Number(req.body?.group ?? 0);
+  const specification_id = req.body?.specification_id ?? null;
+  const specification = req.body?.specification ?? null;
+  const movement_type = req.body?.movement_type ?? "SALE";
+  const item_status = req.body?.item_status ?? "ON_STOCK";
 
-  if (!plu) {
+  if (!plu || !String(plu).trim()) {
     return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   try {
-    const result = await getPluLensesFromDB(plu, branch_id);
+    const reservationInfo = order_id
+      ? {
+          order_id,
+          quantity,
+          item_type: "lens",
+          group,
+          specification_id,
+          specification,
+          movement_type,
+          item_status,
+        }
+      : null;
+
+    const result = await getPluLensesFromDB(
+      String(plu).trim(),
+      branch_id,
+      reservationInfo,
+    );
     if (result.success) {
       res.json(result);
     } else {
