@@ -13,6 +13,9 @@ import { getPluFrameFromDB } from "../models/store.model.js";
 import { getPluServiceFromDB } from "../models/store.model.js";
 import { getPluLensesFromDB } from "../models/store.model.js";
 import { loadOrderItemsForModalFromDB } from "../models/store.model.js";
+import { saveOrderDioptricValuesToDB } from "../models/store.model.js";
+import { deleteDraftObligatoryItemFromDB } from "../models/store.model.js";
+import { deleteDraftGlassesItemsFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // branch_id bereme z JWT tokenu
@@ -213,6 +216,104 @@ export async function loadOrderItemsForModal(req, res) {
     return res.json({ success: true, items });
   } catch (error) {
     console.error("Controller - loadOrderItemsForModal error:", error);
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function saveOrderDioptricValues(req, res) {
+  const branch_id = req.user.branch_id;
+  const order_id = req.body?.order_id;
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const note = req.body?.note;
+  const delivery_address = req.body?.delivery_address;
+
+  if (!order_id) {
+    return res.status(400).json({ success: false, message: "order_id je povinné" });
+  }
+
+  try {
+    const result = await saveOrderDioptricValuesToDB(order_id, branch_id, items, {
+      note,
+      delivery_address,
+    });
+
+    if (!result?.success) {
+      return res.status(404).json(result);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Controller - saveOrderDioptricValues error:", error);
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function deleteDraftObligatoryItem(req, res) {
+  const branch_id = req.user.branch_id;
+  const order_id = Number(req.body?.order_id);
+  const store_item_id = Number(req.body?.store_item_id);
+  const store_batch_id = Number(req.body?.store_batch_id);
+
+  if (!Number.isFinite(order_id) || order_id <= 0) {
+    return res.status(400).json({ success: false, message: "order_id je povinné" });
+  }
+
+  if (!Number.isFinite(store_item_id) || store_item_id <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "store_item_id je povinné" });
+  }
+
+  if (!Number.isFinite(store_batch_id) || store_batch_id <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "store_batch_id je povinné" });
+  }
+
+  try {
+    const result = await deleteDraftObligatoryItemFromDB(
+      order_id,
+      branch_id,
+      store_item_id,
+      store_batch_id,
+    );
+
+    if (!result?.success) {
+      return res.status(409).json(result);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Controller - deleteDraftObligatoryItem error:", error);
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function deleteDraftGlassesItems(req, res) {
+  const branch_id = req.user.branch_id;
+  const order_id = Number(req.body?.order_id);
+  const order_item_ids = Array.isArray(req.body?.order_item_ids)
+    ? req.body.order_item_ids
+    : [];
+
+  if (!Number.isFinite(order_id) || order_id <= 0) {
+    return res.status(400).json({ success: false, message: "order_id je povinné" });
+  }
+
+  try {
+    const result = await deleteDraftGlassesItemsFromDB(
+      order_id,
+      branch_id,
+      order_item_ids,
+    );
+
+    if (!result?.success) {
+      return res.status(409).json(result);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Controller - deleteDraftGlassesItems error:", error);
     return res.status(500).json({ success: false, message: "Chyba serveru" });
   }
 }

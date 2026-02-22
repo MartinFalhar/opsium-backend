@@ -436,6 +436,26 @@ export async function loadOrderItemsForModalFromDB(order_id, branch_id) {
         oi.movement_type,
         oi.item_status,
         ols.specs,
+        odv.ps AS dioptric_ps,
+        odv.pc AS dioptric_pc,
+        odv.pa AS dioptric_pa,
+        odv.padd AS dioptric_padd,
+        odv.pp AS dioptric_pp,
+        odv.pb AS dioptric_pb,
+        odv.ls AS dioptric_ls,
+        odv.lc AS dioptric_lc,
+        odv.la AS dioptric_la,
+        odv.ladd AS dioptric_ladd,
+        odv.lp AS dioptric_lp,
+        odv.lb AS dioptric_lb,
+        oc.p_pd AS centration_p_pd,
+        oc.p_v AS centration_p_v,
+        oc.p_vd AS centration_p_vd,
+        oc.p_panto AS centration_p_panto,
+        oc.l_pd AS centration_l_pd,
+        oc.l_v AS centration_l_v,
+        oc.l_vd AS centration_l_vd,
+        oc.l_panto AS centration_l_panto,
 
         sg.plu AS goods_plu,
         sg.model AS goods_model,
@@ -474,6 +494,8 @@ export async function loadOrderItemsForModalFromDB(order_id, branch_id) {
       FROM orders_items oi
       INNER JOIN orders o ON o.id = oi.order_id
       LEFT JOIN orders_lens_specs ols ON ols.id = oi.specification_id
+      LEFT JOIN orders_dioptric_values odv ON odv.order_item_id = oi.id
+      LEFT JOIN orders_centrations oc ON oc.order_item_id = oi.id
       LEFT JOIN store_goods sg ON sg.store_item_id = oi.store_item_id AND sg.branch_id = o.branch_id
       LEFT JOIN vat_rates vg ON vg.id = sg.vat_type_id
       LEFT JOIN store_frames sf ON sf.store_item_id = oi.store_item_id AND sf.branch_id = o.branch_id
@@ -492,6 +514,460 @@ export async function loadOrderItemsForModalFromDB(order_id, branch_id) {
     return result.rows;
   } catch (err) {
     console.error("Chyba při načítání položek zakázky:", err);
+    throw err;
+  }
+}
+
+function normalizeNullableNumber(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return null;
+    }
+
+    const normalized = trimmed.replace(",", ".");
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const parsed = Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeNullableInteger(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return null;
+    }
+
+    const normalized = trimmed.replace(",", ".");
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+  }
+
+  const parsed = Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+}
+
+function normalizeNullableText(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized === "" ? null : normalized;
+}
+
+export async function saveOrderDioptricValuesToDB(
+  order_id,
+  branch_id,
+  entries = [],
+  orderMeta = {},
+) {
+  if (!order_id) {
+    return { success: false, message: "order_id je povinné" };
+  }
+
+  try {
+    await pool.query("BEGIN");
+
+    const orderCheck = await pool.query(
+      `SELECT id
+       FROM orders
+       WHERE id = $1
+         AND branch_id = $2
+       LIMIT 1`,
+      [order_id, branch_id],
+    );
+
+    if (orderCheck.rows.length === 0) {
+      await pool.query("ROLLBACK");
+      return { success: false, message: "Zakázka nebyla nalezena" };
+    }
+
+    const note = normalizeNullableText(orderMeta?.note);
+    const deliveryAddress = normalizeNullableText(orderMeta?.delivery_address);
+
+    await pool.query(
+      `UPDATE orders
+       SET note = $1,
+           delivery_address = $2,
+           updated_at = NOW()
+       WHERE id = $3
+         AND branch_id = $4`,
+      [note, deliveryAddress, order_id, branch_id],
+    );
+
+    let savedCount = 0;
+
+    for (const entry of entries) {
+      const orderItemId = Number(entry?.order_item_id);
+      if (!Number.isFinite(orderItemId) || orderItemId <= 0) {
+        continue;
+      }
+
+      const itemCheck = await pool.query(
+        `SELECT oi.id
+         FROM orders_items oi
+         INNER JOIN orders o ON o.id = oi.order_id
+         WHERE oi.id = $1
+           AND oi.order_id = $2
+           AND o.branch_id = $3
+           AND oi.item_type = 'frame'
+         LIMIT 1`,
+        [orderItemId, order_id, branch_id],
+      );
+
+      if (itemCheck.rows.length === 0) {
+        continue;
+      }
+
+      const mappedValues = {
+        ps: normalizeNullableNumber(entry?.right?.sph),
+        pc: normalizeNullableNumber(entry?.right?.cyl),
+        pa: normalizeNullableNumber(entry?.right?.osa),
+        padd: normalizeNullableNumber(entry?.right?.add),
+        pp: normalizeNullableNumber(entry?.right?.prizma),
+        pb: normalizeNullableNumber(entry?.right?.baze),
+        ls: normalizeNullableNumber(entry?.left?.sph),
+        lc: normalizeNullableNumber(entry?.left?.cyl),
+        la: normalizeNullableNumber(entry?.left?.osa),
+        ladd: normalizeNullableNumber(entry?.left?.add),
+        lp: normalizeNullableNumber(entry?.left?.prizma),
+        lb: normalizeNullableNumber(entry?.left?.baze),
+      };
+
+      const mappedCentrations = {
+        p_pd: normalizeNullableInteger(entry?.right?.pd),
+        p_v: normalizeNullableInteger(entry?.right?.vyska),
+        p_vd: normalizeNullableInteger(entry?.right?.vertex),
+        p_panto: normalizeNullableInteger(entry?.right?.panto),
+        l_pd: normalizeNullableInteger(entry?.left?.pd),
+        l_v: normalizeNullableInteger(entry?.left?.vyska),
+        l_vd: normalizeNullableInteger(entry?.left?.vertex),
+        l_panto: normalizeNullableInteger(entry?.left?.panto),
+      };
+
+      const updateResult = await pool.query(
+        `UPDATE orders_dioptric_values
+         SET ps = $2,
+             pc = $3,
+             pa = $4,
+             padd = $5,
+             pp = $6,
+             pb = $7,
+             ls = $8,
+             lc = $9,
+             la = $10,
+             ladd = $11,
+             lp = $12,
+             lb = $13
+         WHERE order_item_id = $1`,
+        [
+          orderItemId,
+          mappedValues.ps,
+          mappedValues.pc,
+          mappedValues.pa,
+          mappedValues.padd,
+          mappedValues.pp,
+          mappedValues.pb,
+          mappedValues.ls,
+          mappedValues.lc,
+          mappedValues.la,
+          mappedValues.ladd,
+          mappedValues.lp,
+          mappedValues.lb,
+        ],
+      );
+
+      if (updateResult.rowCount === 0) {
+        await pool.query(
+          `INSERT INTO orders_dioptric_values (
+            order_item_id,
+            ps,
+            pc,
+            pa,
+            padd,
+            pp,
+            pb,
+            ls,
+            lc,
+            la,
+            ladd,
+            lp,
+            lb
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            orderItemId,
+            mappedValues.ps,
+            mappedValues.pc,
+            mappedValues.pa,
+            mappedValues.padd,
+            mappedValues.pp,
+            mappedValues.pb,
+            mappedValues.ls,
+            mappedValues.lc,
+            mappedValues.la,
+            mappedValues.ladd,
+            mappedValues.lp,
+            mappedValues.lb,
+          ],
+        );
+      }
+
+      const centrationUpdateResult = await pool.query(
+        `UPDATE orders_centrations
+         SET p_pd = $2,
+             p_v = $3,
+             p_vd = $4,
+             p_panto = $5,
+             l_pd = $6,
+             l_v = $7,
+             l_vd = $8,
+             l_panto = $9
+         WHERE order_item_id = $1`,
+        [
+          orderItemId,
+          mappedCentrations.p_pd,
+          mappedCentrations.p_v,
+          mappedCentrations.p_vd,
+          mappedCentrations.p_panto,
+          mappedCentrations.l_pd,
+          mappedCentrations.l_v,
+          mappedCentrations.l_vd,
+          mappedCentrations.l_panto,
+        ],
+      );
+
+      if (centrationUpdateResult.rowCount === 0) {
+        await pool.query(
+          `INSERT INTO orders_centrations (
+            order_item_id,
+            p_pd,
+            p_v,
+            p_vd,
+            p_panto,
+            l_pd,
+            l_v,
+            l_vd,
+            l_panto
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            orderItemId,
+            mappedCentrations.p_pd,
+            mappedCentrations.p_v,
+            mappedCentrations.p_vd,
+            mappedCentrations.p_panto,
+            mappedCentrations.l_pd,
+            mappedCentrations.l_v,
+            mappedCentrations.l_vd,
+            mappedCentrations.l_panto,
+          ],
+        );
+      }
+
+      savedCount += 1;
+    }
+
+    await pool.query("COMMIT");
+    return { success: true, saved_count: savedCount };
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    console.error("Chyba při ukládání dioptrických hodnot:", err);
+    throw err;
+  }
+}
+
+export async function deleteDraftObligatoryItemFromDB(
+  order_id,
+  branch_id,
+  store_item_id,
+  store_batch_id,
+) {
+  try {
+    await pool.query("BEGIN");
+
+    const orderResult = await pool.query(
+      `SELECT id, status
+       FROM orders
+       WHERE id = $1
+         AND branch_id = $2
+       LIMIT 1`,
+      [order_id, branch_id],
+    );
+
+    if (orderResult.rows.length === 0) {
+      await pool.query("ROLLBACK");
+      return { success: false, message: "Zakázka nebyla nalezena" };
+    }
+
+    const orderStatus = String(orderResult.rows[0]?.status ?? "").toLowerCase();
+
+    if (orderStatus !== "draft") {
+      await pool.query("ROLLBACK");
+      return {
+        success: false,
+        message: "Položku lze hard-delete odstranit pouze u DRAFT zakázky.",
+      };
+    }
+
+    const reservationDeleteResult = await pool.query(
+      `DELETE FROM store_reservations
+       WHERE order_id = $1
+         AND store_batch_id = $2`,
+      [order_id, store_batch_id],
+    );
+
+    const orderItemDeleteResult = await pool.query(
+      `DELETE FROM orders_items
+       WHERE order_id = $1
+         AND store_item_id = $2`,
+      [order_id, store_item_id],
+    );
+
+    await pool.query("COMMIT");
+
+    return {
+      success: true,
+      deleted_order_items: orderItemDeleteResult.rowCount,
+      deleted_reservations: reservationDeleteResult.rowCount,
+    };
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    console.error("Chyba při hard-delete obligatory položky:", err);
+    throw err;
+  }
+}
+
+export async function deleteDraftGlassesItemsFromDB(
+  order_id,
+  branch_id,
+  order_item_ids = [],
+) {
+  try {
+    await pool.query("BEGIN");
+
+    const orderResult = await pool.query(
+      `SELECT id, status
+       FROM orders
+       WHERE id = $1
+         AND branch_id = $2
+       LIMIT 1`,
+      [order_id, branch_id],
+    );
+
+    if (orderResult.rows.length === 0) {
+      await pool.query("ROLLBACK");
+      return { success: false, message: "Zakázka nebyla nalezena" };
+    }
+
+    const orderStatus = String(orderResult.rows[0]?.status ?? "").toLowerCase();
+
+    if (orderStatus !== "draft") {
+      await pool.query("ROLLBACK");
+      return {
+        success: false,
+        message: "Položku lze hard-delete odstranit pouze u DRAFT zakázky.",
+      };
+    }
+
+    if (!Array.isArray(order_item_ids) || order_item_ids.length === 0) {
+      await pool.query("COMMIT");
+      return { success: true, deleted_order_items: 0, deleted_reservations: 0 };
+    }
+
+    const normalizedIds = [...new Set(
+      order_item_ids
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    )];
+
+    if (normalizedIds.length === 0) {
+      await pool.query("COMMIT");
+      return { success: true, deleted_order_items: 0, deleted_reservations: 0 };
+    }
+
+    const targetItemsResult = await pool.query(
+      `SELECT id, store_batch_id
+       FROM orders_items
+       WHERE order_id = $1
+         AND id = ANY($2::int[])`,
+      [order_id, normalizedIds],
+    );
+
+    const existingItemIds = targetItemsResult.rows.map((row) => Number(row.id));
+    const reservationBatchIds = targetItemsResult.rows
+      .map((row) => Number(row.store_batch_id))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    if (existingItemIds.length === 0) {
+      await pool.query("COMMIT");
+      return { success: true, deleted_order_items: 0, deleted_reservations: 0 };
+    }
+
+    let reservationDeleteCount = 0;
+    if (reservationBatchIds.length > 0) {
+      const reservationDeleteResult = await pool.query(
+        `DELETE FROM store_reservations
+         WHERE order_id = $1
+           AND store_batch_id = ANY($2::int[])`,
+        [order_id, reservationBatchIds],
+      );
+      reservationDeleteCount = reservationDeleteResult.rowCount;
+    }
+
+    await pool.query(
+      `DELETE FROM orders_dioptric_values
+       WHERE order_item_id = ANY($1::int[])`,
+      [existingItemIds],
+    );
+
+    await pool.query(
+      `DELETE FROM orders_centrations
+       WHERE order_item_id = ANY($1::int[])`,
+      [existingItemIds],
+    );
+
+    const orderItemDeleteResult = await pool.query(
+      `DELETE FROM orders_items
+       WHERE order_id = $1
+         AND id = ANY($2::int[])`,
+      [order_id, existingItemIds],
+    );
+
+    await pool.query("COMMIT");
+
+    return {
+      success: true,
+      deleted_order_items: orderItemDeleteResult.rowCount,
+      deleted_reservations: reservationDeleteCount,
+    };
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    console.error("Chyba při hard-delete glasses položek:", err);
     throw err;
   }
 }

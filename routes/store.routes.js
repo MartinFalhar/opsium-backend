@@ -15,6 +15,9 @@ import { getPluFrame } from "../controllers/store.controller.js";
 import { getPluService } from "../controllers/store.controller.js";
 import { getPluLenses } from "../controllers/store.controller.js";
 import { loadOrderItemsForModal } from "../controllers/store.controller.js";
+import { saveOrderDioptricValues } from "../controllers/store.controller.js";
+import { deleteDraftObligatoryItem } from "../controllers/store.controller.js";
+import { deleteDraftGlassesItems } from "../controllers/store.controller.js";
 
 const router = express.Router();
 
@@ -47,6 +50,20 @@ router.post("/new-transaction", authenticateToken, newTransaction);
 router.post("/orders-list", authenticateToken, ordersList);
 
 router.post("/order-items", authenticateToken, loadOrderItemsForModal);
+
+router.post("/order-dioptric-values", authenticateToken, saveOrderDioptricValues);
+
+router.post(
+	"/order-item-delete-draft",
+	authenticateToken,
+	deleteDraftObligatoryItem,
+);
+
+router.post(
+	"/order-glasses-delete-draft",
+	authenticateToken,
+	deleteDraftGlassesItems,
+);
 
 router.post("/getlens", authenticateToken, getCatalogInfo);
 
