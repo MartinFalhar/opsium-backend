@@ -377,7 +377,7 @@ export async function newTransactionInsertToDB(transaction) {
   console.log(transaction);
   try {
     const {
-      invoice_id = `${transaction.invoiceID}`,
+      order_id = transaction.order_id ?? transaction.orderID,
       attrib = `${transaction.attrib}`,
       price_a = `${transaction.price_a}`,
       vat_a = `${transaction.vat_a}`,
@@ -387,15 +387,19 @@ export async function newTransactionInsertToDB(transaction) {
       vat_c = `${transaction.vat_c}`,
     } = transaction || {};
 
+    if (!order_id) {
+      throw new Error("order_id je povinné");
+    }
+
     await pool.query("BEGIN");
 
     const userResult = await pool.query(
-      "INSERT INTO transactions (invoice_id, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-      [invoice_id, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c],
+      "INSERT INTO transactions (order_id, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+      [order_id, attrib, price_a, vat_a, price_b, vat_b, price_c, vat_c],
     );
     const newTransactionID = userResult.rows[0].id;
     await pool.query("COMMIT");
-    return invoice_id;
+    return order_id;
   } catch (err) {
     await pool.query("ROLLBACK");
     throw err;
@@ -514,6 +518,38 @@ export async function loadOrderItemsForModalFromDB(order_id, branch_id) {
     return result.rows;
   } catch (err) {
     console.error("Chyba při načítání položek zakázky:", err);
+    throw err;
+  }
+}
+
+export async function loadOrderTransactionsForModalFromDB(order_id, branch_id) {
+  try {
+    const sql = `
+      SELECT
+        t.id,
+        t.order_id,
+        t.attrib,
+        COALESCE(t.price_a, 0) + COALESCE(t.price_b, 0) + COALESCE(t.price_c, 0) AS amount,
+        CASE t.attrib
+          WHEN 1 THEN 'hotovost'
+          WHEN 2 THEN 'platební karta'
+          WHEN 3 THEN 'převod na účet'
+          WHEN 4 THEN 'šek'
+          WHEN 5 THEN 'okamžitá QR platba'
+          ELSE 'platba'
+        END AS method,
+        t.created_at
+      FROM transactions t
+      INNER JOIN orders o ON o.id = t.order_id
+      WHERE t.order_id = $1
+        AND o.branch_id = $2
+      ORDER BY t.created_at ASC, t.id ASC
+    `;
+
+    const result = await pool.query(sql, [order_id, branch_id]);
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při načítání plateb zakázky:", err);
     throw err;
   }
 }
@@ -899,11 +935,13 @@ export async function deleteDraftGlassesItemsFromDB(
       return { success: true, deleted_order_items: 0, deleted_reservations: 0 };
     }
 
-    const normalizedIds = [...new Set(
-      order_item_ids
-        .map((value) => Number(value))
-        .filter((value) => Number.isFinite(value) && value > 0),
-    )];
+    const normalizedIds = [
+      ...new Set(
+        order_item_ids
+          .map((value) => Number(value))
+          .filter((value) => Number.isFinite(value) && value > 0),
+      ),
+    ];
 
     if (normalizedIds.length === 0) {
       await pool.query("COMMIT");
@@ -1395,10 +1433,13 @@ async function reserveBatchAndCreateOrderItem(
       [batch.id],
     );
 
-    const quantityReserved = Number(reservedResult.rows[0]?.quantity_reserved ?? 0);
+    const quantityReserved = Number(
+      reservedResult.rows[0]?.quantity_reserved ?? 0,
+    );
     const quantityReceived = Number(batch.quantity_received ?? 0);
     const quantitySold = Number(batch.quantity_sold ?? 0);
-    const availableQuantity = quantityReceived - quantitySold - quantityReserved;
+    const availableQuantity =
+      quantityReceived - quantitySold - quantityReserved;
 
     if (availableQuantity >= requestedQuantity) {
       selectedBatch = {
@@ -1608,10 +1649,7 @@ async function createOrderItemWithoutStock(salePrice, orderItemInfo) {
 }
 
 export async function getPluItemFromDB(plu, branch_id, reservationInfo = {}) {
-  const {
-    order_id,
-    quantity = 1,
-  } = reservationInfo || {};
+  const { order_id, quantity = 1 } = reservationInfo || {};
 
   if (!order_id) {
     return { success: false, message: "order_id je povinné" };
@@ -1681,7 +1719,11 @@ export async function getPluItemFromDB(plu, branch_id, reservationInfo = {}) {
   }
 }
 
-export async function getPluFrameFromDB(plu, branch_id, reservationInfo = null) {
+export async function getPluFrameFromDB(
+  plu,
+  branch_id,
+  reservationInfo = null,
+) {
   try {
     await pool.query("BEGIN");
 
@@ -1708,7 +1750,10 @@ export async function getPluFrameFromDB(plu, branch_id, reservationInfo = null) 
         }
 
         await pool.query("COMMIT");
-        return { success: true, frame: { ...frame, ...reserveResult.reservation } };
+        return {
+          success: true,
+          frame: { ...frame, ...reserveResult.reservation },
+        };
       }
 
       await pool.query("COMMIT");
@@ -1724,7 +1769,11 @@ export async function getPluFrameFromDB(plu, branch_id, reservationInfo = null) 
   }
 }
 
-export async function getPluServiceFromDB(plu, branch_id, orderItemInfo = null) {
+export async function getPluServiceFromDB(
+  plu,
+  branch_id,
+  orderItemInfo = null,
+) {
   try {
     await pool.query("BEGIN");
 
@@ -1772,7 +1821,11 @@ export async function getPluServiceFromDB(plu, branch_id, orderItemInfo = null) 
   }
 }
 
-export async function getPluLensesFromDB(plu, branch_id, reservationInfo = null) {
+export async function getPluLensesFromDB(
+  plu,
+  branch_id,
+  reservationInfo = null,
+) {
   try {
     await pool.query("BEGIN");
 
@@ -1798,7 +1851,10 @@ export async function getPluLensesFromDB(plu, branch_id, reservationInfo = null)
         }
 
         await pool.query("COMMIT");
-        return { success: true, lenses: { ...lenses, ...reserveResult.reservation } };
+        return {
+          success: true,
+          lenses: { ...lenses, ...reserveResult.reservation },
+        };
       }
 
       await pool.query("COMMIT");

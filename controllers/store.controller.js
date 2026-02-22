@@ -13,6 +13,7 @@ import { getPluFrameFromDB } from "../models/store.model.js";
 import { getPluServiceFromDB } from "../models/store.model.js";
 import { getPluLensesFromDB } from "../models/store.model.js";
 import { loadOrderItemsForModalFromDB } from "../models/store.model.js";
+import { loadOrderTransactionsForModalFromDB } from "../models/store.model.js";
 import { saveOrderDioptricValuesToDB } from "../models/store.model.js";
 import { deleteDraftObligatoryItemFromDB } from "../models/store.model.js";
 import { deleteDraftGlassesItemsFromDB } from "../models/store.model.js";
@@ -157,7 +158,6 @@ export async function updateInStore(req, res) {
 }
 
 export async function newOrder(req, res) {
-
   try {
     // Přidáme branch_id z JWT tokenu
     const result = await newOrderInsertToDB({
@@ -167,7 +167,9 @@ export async function newOrder(req, res) {
     if (result) {
       res.json(result);
     } else {
-      res.status(500).json({ message: "Nepodařilo se vytvořit novou zakázku." });
+      res
+        .status(500)
+        .json({ message: "Nepodařilo se vytvořit novou zakázku." });
     }
   } catch (error) {
     res.status(500).json({
@@ -208,12 +210,21 @@ export async function loadOrderItemsForModal(req, res) {
   const order_id = req.body?.order_id;
 
   if (!order_id) {
-    return res.status(400).json({ success: false, message: "order_id je povinné" });
+    return res
+      .status(400)
+      .json({ success: false, message: "order_id je povinné" });
   }
 
   try {
-    const items = await loadOrderItemsForModalFromDB(order_id, req.user.branch_id);
-    return res.json({ success: true, items });
+    const items = await loadOrderItemsForModalFromDB(
+      order_id,
+      req.user.branch_id,
+    );
+    const transactions = await loadOrderTransactionsForModalFromDB(
+      order_id,
+      req.user.branch_id,
+    );
+    return res.json({ success: true, items, transactions });
   } catch (error) {
     console.error("Controller - loadOrderItemsForModal error:", error);
     return res.status(500).json({ success: false, message: "Chyba serveru" });
@@ -228,14 +239,21 @@ export async function saveOrderDioptricValues(req, res) {
   const delivery_address = req.body?.delivery_address;
 
   if (!order_id) {
-    return res.status(400).json({ success: false, message: "order_id je povinné" });
+    return res
+      .status(400)
+      .json({ success: false, message: "order_id je povinné" });
   }
 
   try {
-    const result = await saveOrderDioptricValuesToDB(order_id, branch_id, items, {
-      note,
-      delivery_address,
-    });
+    const result = await saveOrderDioptricValuesToDB(
+      order_id,
+      branch_id,
+      items,
+      {
+        note,
+        delivery_address,
+      },
+    );
 
     if (!result?.success) {
       return res.status(404).json(result);
@@ -255,7 +273,9 @@ export async function deleteDraftObligatoryItem(req, res) {
   const store_batch_id = Number(req.body?.store_batch_id);
 
   if (!Number.isFinite(order_id) || order_id <= 0) {
-    return res.status(400).json({ success: false, message: "order_id je povinné" });
+    return res
+      .status(400)
+      .json({ success: false, message: "order_id je povinné" });
   }
 
   if (!Number.isFinite(store_item_id) || store_item_id <= 0) {
@@ -297,7 +317,9 @@ export async function deleteDraftGlassesItems(req, res) {
     : [];
 
   if (!Number.isFinite(order_id) || order_id <= 0) {
-    return res.status(400).json({ success: false, message: "order_id je povinné" });
+    return res
+      .status(400)
+      .json({ success: false, message: "order_id je povinné" });
   }
 
   try {
@@ -332,12 +354,10 @@ export async function getCatalogInfo(req, res) {
     }
   } catch (error) {
     console.error("Controller - getCatalogInfo error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Chyba serveru při načítání informací z katalogu",
-      });
+    res.status(500).json({
+      success: false,
+      message: "Chyba serveru při načítání informací z katalogu",
+    });
   }
 }
 
@@ -368,15 +388,21 @@ export async function getPluItem(req, res) {
   const item_status = req.body?.item_status ?? "ON_STOCK";
 
   if (!plu || !String(plu).trim()) {
-    return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
+    return res
+      .status(400)
+      .json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   if (!order_id) {
-    return res.status(400).json({ success: false, message: "order_id je povinné" });
+    return res
+      .status(400)
+      .json({ success: false, message: "order_id je povinné" });
   }
 
   if (!Number.isFinite(quantity) || quantity <= 0) {
-    return res.status(400).json({ success: false, message: "Neplatné quantity" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Neplatné quantity" });
   }
 
   if (!Number.isFinite(group) || group < 0) {
@@ -417,7 +443,9 @@ export async function getPluFrame(req, res) {
   const item_status = req.body?.item_status ?? "ON_STOCK";
 
   if (!plu || !String(plu).trim()) {
-    return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
+    return res
+      .status(400)
+      .json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   try {
@@ -434,7 +462,11 @@ export async function getPluFrame(req, res) {
         }
       : null;
 
-    const result = await getPluFrameFromDB(String(plu).trim(), branch_id, reservationInfo);
+    const result = await getPluFrameFromDB(
+      String(plu).trim(),
+      branch_id,
+      reservationInfo,
+    );
     if (result.success) {
       res.json(result);
     } else {
@@ -458,7 +490,9 @@ export async function getPluService(req, res) {
   const item_status = req.body?.item_status ?? "ON_STOCK";
 
   if (!plu || !String(plu).trim()) {
-    return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
+    return res
+      .status(400)
+      .json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   try {
@@ -503,7 +537,9 @@ export async function getPluLenses(req, res) {
   const item_status = req.body?.item_status ?? "ON_STOCK";
 
   if (!plu || !String(plu).trim()) {
-    return res.status(400).json({ success: false, message: "PLU kód nebyl zadán" });
+    return res
+      .status(400)
+      .json({ success: false, message: "PLU kód nebyl zadán" });
   }
 
   try {
