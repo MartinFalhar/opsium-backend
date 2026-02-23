@@ -1,8 +1,6 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import fs from "fs";
-import puppeteer from "puppeteer";
 import bodyParser from "body-parser";
 
 // Import route modules
@@ -17,7 +15,6 @@ import agendaRoutes from "./routes/agenda.routes.js";
 import emailRoutes from "./routes/email.routes.js";
 import smsRoutes from "./routes/sms.routes.js";
 import pdfRoutes from "./routes/pdf.routes.js";
-
 
 const app = express();
 
@@ -42,7 +39,7 @@ app.use(
       }
     },
     credentials: true,
-  })
+  }),
 );
 
 const port = process.env.PORT || 3000;
