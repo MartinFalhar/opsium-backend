@@ -111,3 +111,70 @@ export async function deleteServicesInDB(id, branch_id) {
     throw err;
   }
 }
+
+export async function getDashboardDataFromDB(branch_id) {
+  try {
+    const normalizedBranchId = Number(branch_id);
+    if (!Number.isFinite(normalizedBranchId) || normalizedBranchId <= 0) {
+      throw new Error("branch_id je povinné");
+    }
+
+    const closedOrdersResult = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM orders
+       WHERE branch_id = $1
+         AND status = 'confirmed'::order_status`,
+      [normalizedBranchId],
+    );
+
+    const latestOrdersResult = await pool.query(
+      `SELECT
+         o.id,
+         o.created_at,
+         o.status,
+         c.name,
+         c.surname
+       FROM orders o
+       LEFT JOIN clients c ON c.id = o.client_id
+       WHERE o.branch_id = $1
+       ORDER BY o.created_at DESC
+       LIMIT 5`,
+      [normalizedBranchId],
+    );
+
+    const transactionsTotalResult = await pool.query(
+      `SELECT
+         COALESCE(SUM(COALESCE(t.price_a, 0) + COALESCE(t.price_b, 0) + COALESCE(t.price_c, 0)), 0)::numeric AS total
+       FROM transactions t
+       INNER JOIN orders o ON o.id = t.order_id
+       WHERE o.branch_id = $1`,
+      [normalizedBranchId],
+    );
+
+    const storeCountResult = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM store_frames WHERE branch_id = $1) AS store_frames,
+         (SELECT COUNT(*)::int FROM store_sunglasses WHERE branch_id = $1) AS store_sunglasses,
+         (SELECT COUNT(*)::int FROM store_lens WHERE branch_id = $1) AS store_lens,
+         (SELECT COUNT(*)::int FROM store_cl WHERE branch_id = $1) AS store_cl,
+         (SELECT COUNT(*)::int FROM store_goods WHERE branch_id = $1) AS store_goods`,
+      [normalizedBranchId],
+    );
+
+    return {
+      closedOrdersCount: Number(closedOrdersResult.rows[0]?.count ?? 0),
+      latestOrders: latestOrdersResult.rows,
+      transactionsTotal: Number(transactionsTotalResult.rows[0]?.total ?? 0),
+      stockCounts: storeCountResult.rows[0] || {
+        store_frames: 0,
+        store_sunglasses: 0,
+        store_lens: 0,
+        store_cl: 0,
+        store_goods: 0,
+      },
+    };
+  } catch (err) {
+    console.error("Chyba při načítání dashboard dat:", err);
+    throw err;
+  }
+}

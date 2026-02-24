@@ -2,6 +2,7 @@ import { searchInStoreFromDB } from "../models/store.model.js";
 import { updateIteminDB } from "../models/store.model.js";
 import { newOrderInsertToDB } from "../models/store.model.js";
 import { newTransactionInsertToDB } from "../models/store.model.js";
+import { transactionListFromDB } from "../models/store.model.js";
 import { ordersListFromDB } from "../models/store.model.js";
 import { getContactsListFromDB } from "../models/store.model.js";
 import { putInStoreDB } from "../models/store.model.js";
@@ -17,6 +18,7 @@ import { loadOrderTransactionsForModalFromDB } from "../models/store.model.js";
 import { saveOrderDioptricValuesToDB } from "../models/store.model.js";
 import { deleteDraftObligatoryItemFromDB } from "../models/store.model.js";
 import { deleteDraftGlassesItemsFromDB } from "../models/store.model.js";
+import { confirmOrderFromDB } from "../models/store.model.js";
 
 export async function searchInStore(req, res) {
   // branch_id bereme z JWT tokenu
@@ -191,6 +193,23 @@ export async function newTransaction(req, res) {
     res.json({ success: false, message: "Chyba serveru" });
   }
 }
+export async function transactionList(req, res) {
+  try {
+    const result = await transactionListFromDB({
+      branch_id: req.user.branch_id,
+      query: req.body?.query ?? "",
+      payment_attrib: req.body?.payment_attrib ?? null,
+      time_range: req.body?.time_range ?? null,
+    });
+    if (result) {
+      res.json(result);
+    } else {
+      res.json({ message: "Selhání při nahrávání nové transakce." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
 
 export async function ordersList(req, res) {
   try {
@@ -262,6 +281,30 @@ export async function saveOrderDioptricValues(req, res) {
     return res.json(result);
   } catch (error) {
     console.error("Controller - saveOrderDioptricValues error:", error);
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function confirmOrder(req, res) {
+  const branch_id = req.user.branch_id;
+  const order_id = Number(req.body?.order_id);
+
+  if (!Number.isFinite(order_id) || order_id <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "order_id je povinné" });
+  }
+
+  try {
+    const result = await confirmOrderFromDB(order_id, branch_id);
+
+    if (!result?.success) {
+      return res.status(409).json(result);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Controller - confirmOrder error:", error);
     return res.status(500).json({ success: false, message: "Chyba serveru" });
   }
 }

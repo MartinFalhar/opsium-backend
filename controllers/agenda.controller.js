@@ -4,6 +4,7 @@ import { getVatAtDate } from "../models/agenda.model.js";
 import { searchForServicesFromDB } from "../models/agenda.model.js";
 import { updateServicesInDB } from "../models/agenda.model.js";
 import { deleteServicesInDB } from "../models/agenda.model.js";
+import { getDashboardDataFromDB } from "../models/agenda.model.js";
 
 export async function searchContacts(req, res) {
   try {
@@ -93,3 +94,16 @@ export async function deleteServices(req, res) {
     res.json({ success: false, message: "Chyba serveru" });
   }
 } 
+
+export async function getDashboardData(req, res) {
+  try {
+    const branch_id = req.user.branch_id;
+    const result = await getDashboardDataFromDB(branch_id);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("Dashboard data load error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Chyba serveru při načítání dashboardu" });
+  }
+}

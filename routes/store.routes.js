@@ -5,6 +5,7 @@ import { updateInStore } from "../controllers/store.controller.js";
 import { newOrder } from "../controllers/store.controller.js";
 import { ordersList } from "../controllers/store.controller.js";
 import { newTransaction } from "../controllers/store.controller.js";
+import { transactionList } from "../controllers/store.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 import { putInStore } from "../controllers/store.controller.js";
 import { putInMultipleStore } from "../controllers/store.controller.js";
@@ -18,6 +19,7 @@ import { loadOrderItemsForModal } from "../controllers/store.controller.js";
 import { saveOrderDioptricValues } from "../controllers/store.controller.js";
 import { deleteDraftObligatoryItem } from "../controllers/store.controller.js";
 import { deleteDraftGlassesItems } from "../controllers/store.controller.js";
+import { confirmOrder } from "../controllers/store.controller.js";
 
 const router = express.Router();
 
@@ -47,11 +49,17 @@ router.post("/new-order", authenticateToken, newOrder);
 
 router.post("/new-transaction", authenticateToken, newTransaction);
 
+router.post("/transaction-list", authenticateToken, transactionList);
+
+
+
 router.post("/orders-list", authenticateToken, ordersList);
 
 router.post("/order-items", authenticateToken, loadOrderItemsForModal);
 
 router.post("/order-dioptric-values", authenticateToken, saveOrderDioptricValues);
+
+router.post("/confirm-order", authenticateToken, confirmOrder);
 
 router.post(
 	"/order-item-delete-draft",

@@ -406,6 +406,100 @@ export async function newTransactionInsertToDB(transaction) {
   }
 }
 
+export async function transactionListFromDB(transaction) {
+  try {
+    const branch_id = Number(transaction?.branch_id);
+    const query = String(transaction?.query ?? "").trim();
+    const rawPaymentAttrib = transaction?.payment_attrib;
+    const payment_attrib =
+      rawPaymentAttrib === null ||
+      rawPaymentAttrib === undefined ||
+      rawPaymentAttrib === ""
+        ? null
+        : Number(rawPaymentAttrib);
+    const normalizedPaymentAttrib = Number.isFinite(payment_attrib)
+      ? payment_attrib
+      : null;
+    const allowedTimeRanges = new Set([
+      "today",
+      "yesterday",
+      "3days",
+      "week",
+      "month",
+    ]);
+    const time_range = allowedTimeRanges.has(String(transaction?.time_range ?? ""))
+      ? String(transaction.time_range)
+      : null;
+    const likePattern = `%${query}%`;
+
+    if (!Number.isFinite(branch_id) || branch_id <= 0) {
+      throw new Error("branch_id je povinné");
+    }
+
+    const sql = `
+      SELECT
+        t.id,
+        t.order_id,
+        t.attrib,
+        COALESCE(t.price_a, 0) AS price_a,
+        COALESCE(t.vat_a, 0) AS vat_a,
+        COALESCE(t.price_b, 0) AS price_b,
+        COALESCE(t.vat_b, 0) AS vat_b,
+        COALESCE(t.price_c, 0) AS price_c,
+        COALESCE(t.vat_c, 0) AS vat_c,
+        COALESCE(t.price_a, 0) + COALESCE(t.price_b, 0) + COALESCE(t.price_c, 0) AS amount,
+        CASE t.attrib
+          WHEN 1 THEN 'hotovost'
+          WHEN 2 THEN 'platební karta'
+          WHEN 3 THEN 'převod na účet'
+          WHEN 4 THEN 'šek'
+          WHEN 5 THEN 'okamžitá QR platba'
+          ELSE 'platba'
+        END AS payment_method,
+        CONCAT_WS(' ', c.degree_before, c.name, c.surname, c.degree_after) AS customer_name,
+        t.created_at,
+        o.year,
+        o.number
+      FROM transactions t
+      INNER JOIN orders o ON o.id = t.order_id
+      LEFT JOIN clients c ON c.id = o.client_id
+      WHERE o.branch_id = $1
+        AND (
+          $2 = ''
+          OR CAST(t.id AS TEXT) ILIKE $3
+          OR CAST(t.order_id AS TEXT) ILIKE $3
+          OR CONCAT_WS(' ', c.degree_before, c.name, c.surname, c.degree_after) ILIKE $3
+        )
+        AND ($4::int IS NULL OR t.attrib = $4)
+        AND (
+          $5::text IS NULL
+          OR ($5 = 'today' AND t.created_at >= date_trunc('day', NOW()))
+          OR (
+            $5 = 'yesterday'
+            AND t.created_at >= date_trunc('day', NOW()) - interval '1 day'
+            AND t.created_at < date_trunc('day', NOW())
+          )
+          OR ($5 = '3days' AND t.created_at >= NOW() - interval '3 days')
+          OR ($5 = 'week' AND t.created_at >= NOW() - interval '7 days')
+          OR ($5 = 'month' AND t.created_at >= NOW() - interval '1 month')
+        )
+      ORDER BY t.created_at DESC, t.id DESC
+    `;
+
+    const result = await pool.query(sql, [
+      branch_id,
+      query,
+      likePattern,
+      normalizedPaymentAttrib,
+      time_range,
+    ]);
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při načítání transakcí:", err);
+    throw err;
+  }
+}
+
 export async function ordersListFromDB(branch_id) {
   try {
     const result = await pool.query(
@@ -833,6 +927,107 @@ export async function saveOrderDioptricValuesToDB(
   } catch (err) {
     await pool.query("ROLLBACK");
     console.error("Chyba při ukládání dioptrických hodnot:", err);
+    throw err;
+  }
+}
+
+export async function confirmOrderFromDB(order_id, branch_id) {
+  try {
+    await pool.query("BEGIN");
+
+    const orderResult = await pool.query(
+      `SELECT id, status
+       FROM orders
+       WHERE id = $1
+         AND branch_id = $2
+       FOR UPDATE`,
+      [order_id, branch_id],
+    );
+
+    if (orderResult.rows.length === 0) {
+      await pool.query("ROLLBACK");
+      return { success: false, message: "Zakázka nebyla nalezena" };
+    }
+
+    const orderStatus = String(orderResult.rows[0]?.status ?? "").toLowerCase();
+    if (orderStatus !== "draft") {
+      await pool.query("ROLLBACK");
+      return {
+        success: false,
+        message: "Potvrdit lze pouze zakázku ve stavu DRAFT.",
+      };
+    }
+
+    const reservationsResult = await pool.query(
+      `SELECT id, store_batch_id, quantity
+       FROM store_reservations
+       WHERE order_id = $1
+       FOR UPDATE`,
+      [order_id],
+    );
+
+    for (const reservation of reservationsResult.rows) {
+      const reservationQuantity = Number(reservation.quantity ?? 0);
+      const storeBatchId = Number(reservation.store_batch_id);
+
+      if (!Number.isFinite(reservationQuantity) || reservationQuantity <= 0) {
+        await pool.query("ROLLBACK");
+        return {
+          success: false,
+          message: "Neplatná quantity v rezervaci.",
+        };
+      }
+
+      if (!Number.isFinite(storeBatchId) || storeBatchId <= 0) {
+        await pool.query("ROLLBACK");
+        return {
+          success: false,
+          message: "Neplatný store_batch_id v rezervaci.",
+        };
+      }
+
+      const batchUpdateResult = await pool.query(
+        `UPDATE store_batches
+         SET quantity_sold = COALESCE(quantity_sold, 0) + $1
+         WHERE id = $2`,
+        [reservationQuantity, storeBatchId],
+      );
+
+      if (batchUpdateResult.rowCount === 0) {
+        await pool.query("ROLLBACK");
+        return {
+          success: false,
+          message: "Nepodařilo se aktualizovat skladovou šarži.",
+        };
+      }
+    }
+
+    const reservationDeleteResult = await pool.query(
+      `DELETE FROM store_reservations
+       WHERE order_id = $1`,
+      [order_id],
+    );
+
+    await pool.query(
+      `UPDATE orders
+       SET status = 'confirmed'
+       WHERE id = $1
+         AND branch_id = $2`,
+      [order_id, branch_id],
+    );
+
+    await pool.query("COMMIT");
+
+    return {
+      success: true,
+      order_id,
+      confirmed: true,
+      processed_reservations: reservationsResult.rows.length,
+      deleted_reservations: reservationDeleteResult.rowCount,
+    };
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    console.error("Chyba při potvrzení zakázky:", err);
     throw err;
   }
 }

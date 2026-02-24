@@ -6,6 +6,7 @@ import {
   searchVatAtDate,
   updateServices,
   deleteServices,
+  getDashboardData,
 } from "../controllers/agenda.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 
@@ -24,5 +25,7 @@ router.post("/services-search", authenticateToken, searchForServices);
 router.post("/services-update", authenticateToken, updateServices);
 
 router.post("/services-delete", authenticateToken, deleteServices);
+
+router.get("/dashboard", authenticateToken, getDashboardData);
 
 export default router;
