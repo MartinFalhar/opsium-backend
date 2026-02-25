@@ -6,6 +6,7 @@ import {
   insertNewUser,
   insertNewBranch,
   insertNewMember,
+  updateMember,
   insertNewOrganization,
   loadAdminsFromDB,
   loadUsersFromDB,
@@ -128,6 +129,21 @@ export async function createBranch(req, res) {
   }
 }
 
+export async function editMember(req, res) {
+  try {
+    const updated = await updateMember(req.body);
+
+    if (!updated) {
+      return res.status(404).json({ message: "Člen nebyl nalezen." });
+    }
+
+    return res.json({ message: "Člen byl úspěšně upraven." });
+  } catch (error) {
+    console.error("Chyba při úpravě člena:", error);
+    return res.status(500).json({ message: "Nastala chyba při úpravě člena." });
+  }
+}
+
 export async function createClient(req, res) {
   try {
     //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
@@ -204,7 +220,7 @@ export async function usersList(req, res) {
 export async function branchesList(req, res) {
   try {
     const branche = await loadBranchesFromDB(req.body.organization);
-    
+
     if (branche) {
       res.json(branche);
       console.log("BCK Controller> BRANCHList result:", branche);
@@ -259,9 +275,10 @@ export async function adminInfo(req, res) {
 }
 
 export async function organizationInfo(req, res) {
-
-    try {
-    const organizationInfo = await organizationInfoFromDB(req.body.organization_id);
+  try {
+    const organizationInfo = await organizationInfoFromDB(
+      req.body.organization_id,
+    );
     return res.json(organizationInfo);
   } catch (error) {
     console.error("Controller > organizationInfo error:", error);

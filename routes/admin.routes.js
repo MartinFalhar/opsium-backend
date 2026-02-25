@@ -4,6 +4,7 @@ import {
   createUser,
   createMember,
   createBranch,
+  editMember,
   adminsList,
   usersList,
   branchesList,
@@ -23,6 +24,8 @@ router.post("/create_user", createUser);
 router.post("/create_member", createMember);
 
 router.post("/create_branch", createBranch);
+
+router.post("/update_member", editMember);
 
 router.post("/admin_list", adminsList);
 

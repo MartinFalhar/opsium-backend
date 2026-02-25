@@ -13,7 +13,7 @@ export async function existUser(email) {
   try {
     const result = await pool.query(
       "SELECT email FROM users WHERE email = $1",
-      [email]
+      [email],
     );
     return result.rows.length > 0;
   } catch (err) {
@@ -26,7 +26,7 @@ export async function existBranch(name) {
   try {
     const result = await pool.query(
       "SELECT name FROM branches WHERE name = $1",
-      [name]
+      [name],
     );
     return result.rows.length > 0;
   } catch (err) {
@@ -38,7 +38,7 @@ export async function existMember(name, surname) {
   try {
     const result = await pool.query(
       "SELECT name, surname FROM members WHERE name = $1 AND surname = $2",
-      [name, surname]
+      [name, surname],
     );
     return result.rows.length > 0;
   } catch (err) {
@@ -71,12 +71,12 @@ export async function insertNewAdmin(user) {
 
     const userResult = await pool.query(
       "INSERT INTO users (name, surname, email, password, rights) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [adm_name, adm_surname, adm_email, hash, adm_rights]
+      [adm_name, adm_surname, adm_email, hash, adm_rights],
     );
     const newAdminID = userResult.rows[0].id;
     const orgResult = await pool.query(
       "INSERT INTO organizations (name, street, city, postal_code, ico, dic) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [org_name, org_street, org_city, org_postal_code, org_ico, org_dic]
+      [org_name, org_street, org_city, org_postal_code, org_ico, org_dic],
     );
     const organizationId = orgResult.rows[0].id;
 
@@ -120,9 +120,9 @@ export async function insertNewBranch(branch) {
       street = branch.street,
       city = branch.city,
       postal_code = branch.postal_code,
-      open_hours = { "pondělí": "08:00-17:00" },
-      branch_phone = { "phone": "<nezadáno>" },
-      branch_email = { "email": "<nezadáno>" },
+      open_hours = { pondělí: "08:00-17:00" },
+      branch_phone = { phone: "<nezadáno>" },
+      branch_email = { email: "<nezadáno>" },
       organization_id = branch.organization_id,
     } = branch || {};
 
@@ -141,8 +141,8 @@ export async function insertNewBranch(branch) {
         branch_phone,
         branch_email,
         organization_id,
-        user_id
-      ]
+        user_id,
+      ],
     );
   } catch (err) {
     console.error("Chyba při registraci nové pobočky:", err);
@@ -169,7 +169,7 @@ export async function insertNewUser(user) {
 
     const newAdminID = await pool.query(
       "INSERT INTO users (name, surname, email, password, rights, organization_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [name, surname, email, hash, rights, organization_id]
+      [name, surname, email, hash, rights, organization_id],
     );
     return newAdminID.rows[0].id;
   } catch (err) {
@@ -186,7 +186,9 @@ export async function insertNewMember(member) {
       surname,
       nick,
       pin,
-      userID = member.user_id, //Parents ID
+      birth_date = null,
+      name_date = null,
+      organization_id = member.organization_id,
     } = member || {};
 
     if (!name || !surname || !pin) {
@@ -196,11 +198,47 @@ export async function insertNewMember(member) {
     const hash = await bcrypt.hash(pin, saltRounds);
 
     await pool.query(
-      "INSERT INTO members (name, surname, nick, pin, admin_id) VALUES ($1, $2, $3, $4, $5)",
-      [name, surname, nick, pin, userID]
+      "INSERT INTO members (name, surname, nick, pin, birth_date, name_date, organization_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [name, surname, nick, pin, birth_date, name_date, organization_id],
     );
   } catch (err) {
     console.error("Chyba při registraci člena:", err);
+    throw err;
+  }
+}
+
+export async function updateMember(member) {
+  try {
+    const {
+      id,
+      name,
+      surname,
+      nick,
+      pin,
+      birth_date = null,
+      name_date = null,
+      organization_id,
+    } = member || {};
+
+    if (!id || !name || !surname || !pin) {
+      throw new Error(
+        "Missing required member fields: id, name, surname or pin",
+      );
+    }
+
+    const params = [name, surname, nick, pin, birth_date, name_date, id];
+    let query =
+      "UPDATE members SET name = $1, surname = $2, nick = $3, pin = $4, birth_date = $5, name_date = $6, updated_at = NOW() WHERE id = $7";
+
+    if (organization_id) {
+      params.push(organization_id);
+      query += " AND organization_id = $8";
+    }
+
+    const result = await pool.query(query, params);
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Chyba při aktualizaci člena:", err);
     throw err;
   }
 }
@@ -220,7 +258,7 @@ export async function insertNewOrganization(user) {
 
     await pool.query(
       "INSERT INTO organizations (name, street, city, postal_code, ICO, DIC, admin_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [name, street, city, postal_code, ico, dic, admin_id]
+      [name, street, city, postal_code, ico, dic, admin_id],
     );
   } catch (err) {
     console.error("Chyba při registraci uživatele:", err);
@@ -258,7 +296,7 @@ export async function loadAdminsFromDB() {
 
     const result = await pool.query(
       "SELECT * FROM users WHERE rights >= $1 ORDER BY rights DESC LIMIT $2 OFFSET $3",
-      [minRights, pageSize, offset]
+      [minRights, pageSize, offset],
     );
     if (result.rows.length > 0) {
       return result.rows;
@@ -280,7 +318,7 @@ export async function loadUsersFromDB(organization) {
 
     const result = await pool.query(
       "SELECT * FROM users WHERE rights = $1 AND organization_id = $2 ORDER BY rights DESC LIMIT $3 OFFSET $4",
-      [minRights, organization, pageSize, offset]
+      [minRights, organization, pageSize, offset],
     );
 
     if (result.rows.length > 0) {
@@ -303,7 +341,7 @@ export async function loadBranchesFromDB(organization_id) {
 
     const result = await pool.query(
       "SELECT * FROM branches WHERE organization_id = $1 ORDER BY name DESC LIMIT $2 OFFSET $3",
-      [organization_id, pageSize, offset]
+      [organization_id, pageSize, offset],
     );
     if (result.rows.length > 0) {
       return result.rows;
@@ -325,7 +363,7 @@ export async function loadMembersFromDB(organization_id) {
 
     const result = await pool.query(
       "SELECT * FROM members WHERE organization_id = $1 ORDER BY surname DESC LIMIT $2 OFFSET $3",
-      [organization_id, pageSize, offset]
+      [organization_id, pageSize, offset],
     );
     if (result.rows.length > 0) {
       return result.rows;
@@ -352,7 +390,7 @@ export async function superadminInfoFromDB() {
     const adminRights = 10;
     const res01 = await pool.query(
       "SELECT COUNT(*) AS countadmincount FROM users WHERE rights = $1",
-      [adminRights]
+      [adminRights],
     );
     dataOpsiumInfo.countAdmin = Number(res01.rows[0].countadmincount);
 
@@ -362,19 +400,19 @@ export async function superadminInfoFromDB() {
 
     //CountBranches
     const res03 = await pool.query(
-      "SELECT COUNT(*) AS countbranches FROM branches"
+      "SELECT COUNT(*) AS countbranches FROM branches",
     );
     dataOpsiumInfo.countTotalBranches = Number(res03.rows[0].countbranches);
 
     //CountMembers
     const res04 = await pool.query(
-      "SELECT COUNT(*) AS countmembers FROM members"
+      "SELECT COUNT(*) AS countmembers FROM members",
     );
     dataOpsiumInfo.countTotalMembers = Number(res04.rows[0].countmembers);
 
     //CountClients
     const res05 = await pool.query(
-      "SELECT COUNT(*) AS countclients FROM clients"
+      "SELECT COUNT(*) AS countclients FROM clients",
     );
     dataOpsiumInfo.countTotalClients = Number(res05.rows[0].countclients);
 
@@ -397,28 +435,28 @@ export async function adminInfoFromDB(organization_id) {
     //CountTotal
     const res02 = await pool.query(
       "SELECT COUNT(*) AS counttotal FROM users WHERE organization_id = $1",
-      [organization_id]
+      [organization_id],
     );
     dataAdminInfo.countTotal = Number(res02.rows[0].counttotal);
 
     //CountBranches
     const res03 = await pool.query(
       "SELECT COUNT(*) AS countbranches FROM branches WHERE organization_id = $1",
-      [organization_id]
+      [organization_id],
     );
     dataAdminInfo.countTotalBranches = Number(res03.rows[0].countbranches);
 
     //CountMembers
     const res04 = await pool.query(
       "SELECT COUNT(*) AS countmembers FROM members WHERE organization_id = $1",
-      [organization_id]
+      [organization_id],
     );
     dataAdminInfo.countTotalMembers = Number(res04.rows[0].countmembers);
 
     //CountClients
     const res05 = await pool.query(
       "SELECT COUNT(*) AS countclients FROM clients WHERE organization_id = $1",
-      [organization_id]
+      [organization_id],
     );
     dataAdminInfo.countTotalClients = Number(res05.rows[0].countclients);
 
@@ -445,7 +483,7 @@ export async function organizationInfoFromDB(organization_id) {
     //CountTotal
     const organizationInfo = await pool.query(
       "SELECT * FROM organizations WHERE id = $1",
-      [organization_id]
+      [organization_id],
     );
     dataOrganizationInfo.name = organizationInfo.rows[0].name;
     dataOrganizationInfo.street = organizationInfo.rows[0].street;
@@ -479,9 +517,9 @@ export async function branchInfoFromDB(user_id) {
   try {
     const dataBranchInfoDB = await pool.query(
       "SELECT * FROM branches WHERE user_id = $1",
-      [user_id]
+      [user_id],
     );
-    if (dataBranchInfoDB.rows.length > 0)  {
+    if (dataBranchInfoDB.rows.length > 0) {
       dataBranchInfo.id = dataBranchInfoDB.rows[0].id;
       dataBranchInfo.name = dataBranchInfoDB.rows[0].name;
       dataBranchInfo.street = dataBranchInfoDB.rows[0].street;
@@ -490,9 +528,8 @@ export async function branchInfoFromDB(user_id) {
       dataBranchInfo.phone = dataBranchInfoDB.rows[0].phone;
       dataBranchInfo.email = dataBranchInfoDB.rows[0].email;
       dataBranchInfo.open_hours = dataBranchInfoDB.rows[0].open_hours;
-    }     
-    return dataBranchInfo;  
-    
+    }
+    return dataBranchInfo;
   } catch (err) {
     console.error("Chyba při branch RELATIONS W/ ADMIN:", err);
     throw err;
