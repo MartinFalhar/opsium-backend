@@ -9,6 +9,7 @@ import {
   usersList,
   branchesList,
   membersList,
+  editBranch,
   superadminInfo,
   adminInfo,
   organizationInfo,
@@ -26,6 +27,8 @@ router.post("/create_member", createMember);
 router.post("/create_branch", createBranch);
 
 router.post("/update_member", editMember);
+
+router.post("/update_branch", editBranch);
 
 router.post("/admin_list", adminsList);
 

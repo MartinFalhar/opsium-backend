@@ -16,6 +16,7 @@ import {
   adminInfoFromDB,
   organizationInfoFromDB,
   branchInfoFromDB,
+  updateBranch,
 } from "../models/admin.model.js";
 
 import bodyParser from "body-parser";
@@ -141,6 +142,23 @@ export async function editMember(req, res) {
   } catch (error) {
     console.error("Chyba při úpravě člena:", error);
     return res.status(500).json({ message: "Nastala chyba při úpravě člena." });
+  }
+}
+
+export async function editBranch(req, res) {
+  try {
+    const updated = await updateBranch(req.body);
+
+    if (!updated) {
+      return res.status(404).json({ message: "Pobočka nebyla nalezena." });
+    }
+
+    return res.json({ message: "Pobočka byla úspěšně upravena." });
+  } catch (error) {
+    console.error("Chyba při úpravě pobočky:", error);
+    return res
+      .status(500)
+      .json({ message: "Nastala chyba při úpravě pobočky." });
   }
 }
 

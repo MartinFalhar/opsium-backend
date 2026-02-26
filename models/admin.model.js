@@ -243,6 +243,51 @@ export async function updateMember(member) {
   }
 }
 
+export async function updateBranch(branch) {
+  try {
+    const {
+      id,
+      user_id,
+      organization_id,
+      name,
+      street,
+      city,
+      postal_code,
+      open_hours,
+    } = branch || {};
+
+    if (!name || (!id && !user_id)) {
+      throw new Error("Missing required branch fields: name and id/user_id");
+    }
+
+    const params = [name, street, city, postal_code, open_hours || {}];
+    let query =
+      "UPDATE branches SET name = $1, street = $2, city = $3, postal_code = $4, open_hours = $5";
+
+    if (id) {
+      params.push(id);
+      query += " WHERE id = $6";
+      if (organization_id) {
+        params.push(organization_id);
+        query += " AND organization_id = $7";
+      }
+    } else {
+      params.push(user_id);
+      query += " WHERE user_id = $6";
+      if (organization_id) {
+        params.push(organization_id);
+        query += " AND organization_id = $7";
+      }
+    }
+
+    const result = await pool.query(query, params);
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Chyba při aktualizaci pobočky:", err);
+    throw err;
+  }
+}
+
 export async function insertNewOrganization(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
   try {
