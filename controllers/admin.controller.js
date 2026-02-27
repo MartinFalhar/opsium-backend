@@ -17,6 +17,8 @@ import {
   organizationInfoFromDB,
   branchInfoFromDB,
   updateBranch,
+  updateUser,
+  updateOrganization,
 } from "../models/admin.model.js";
 
 import bodyParser from "body-parser";
@@ -162,6 +164,32 @@ export async function editBranch(req, res) {
   }
 }
 
+export async function editUser(req, res) {
+  try {
+    const updated = await updateUser(req.body);
+
+    if (!updated) {
+      return res.status(404).json({ message: "Uživatel nebyl nalezen." });
+    }
+
+    return res.json({ message: "Uživatel byl úspěšně upraven." });
+  } catch (error) {
+    console.error("Chyba při úpravě uživatele:", error);
+
+    if (error?.message === "Staré heslo není správné.") {
+      return res.status(400).json({ message: error.message });
+    }
+
+    if (error?.message === "Pro změnu hesla je nutné zadat staré heslo.") {
+      return res.status(400).json({ message: error.message });
+    }
+
+    return res
+      .status(500)
+      .json({ message: "Nastala chyba při úpravě uživatele." });
+  }
+}
+
 export async function createClient(req, res) {
   try {
     //Nejdříve zkontrolujeme, jestli uživatel s daným emailem již existuje
@@ -303,6 +331,24 @@ export async function organizationInfo(req, res) {
     return res.status(500).json({
       success: false,
       message: "Chyba serveru při získávání ORGANIZATION INFO",
+    });
+  }
+}
+
+export async function editOrganization(req, res) {
+  try {
+    const updated = await updateOrganization(req.body);
+
+    if (!updated) {
+      return res.status(404).json({ message: "Organizace nebyla nalezena." });
+    }
+
+    return res.json({ message: "Organizace byla úspěšně upravena." });
+  } catch (error) {
+    console.error("Controller > editOrganization error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Chyba serveru při úpravě ORGANIZATION INFO",
     });
   }
 }

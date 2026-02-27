@@ -288,6 +288,83 @@ export async function updateBranch(branch) {
   }
 }
 
+export async function updateUser(user) {
+  try {
+    const {
+      id,
+      name,
+      surname,
+      email,
+      organization_id,
+      oldPassword,
+      newPassword,
+    } = user || {};
+
+    if (!id || !name || !surname || !email) {
+      throw new Error(
+        "Missing required user fields: id, name, surname or email",
+      );
+    }
+
+    const shouldChangePassword =
+      typeof newPassword === "string" && newPassword.trim() !== "";
+
+    if (shouldChangePassword) {
+      if (typeof oldPassword !== "string" || oldPassword.trim() === "") {
+        throw new Error("Pro změnu hesla je nutné zadat staré heslo.");
+      }
+
+      const passwordCheckResult = await pool.query(
+        "SELECT password FROM users WHERE id = $1" +
+          (organization_id ? " AND organization_id = $2" : ""),
+        organization_id ? [id, organization_id] : [id],
+      );
+
+      if (passwordCheckResult.rows.length === 0) {
+        return false;
+      }
+
+      const storedPassword = passwordCheckResult.rows[0].password;
+      const isOldPasswordValid = await bcrypt.compare(
+        oldPassword,
+        storedPassword,
+      );
+
+      if (!isOldPasswordValid) {
+        throw new Error("Staré heslo není správné.");
+      }
+
+      const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+      const params = [name, surname, email, newPasswordHash, id];
+      let query =
+        "UPDATE users SET name = $1, surname = $2, email = $3, password = $4, updated_at = NOW() WHERE id = $5";
+
+      if (organization_id) {
+        params.push(organization_id);
+        query += " AND organization_id = $6";
+      }
+
+      const result = await pool.query(query, params);
+      return result.rowCount > 0;
+    }
+
+    const params = [name, surname, email, id];
+    let query =
+      "UPDATE users SET name = $1, surname = $2, email = $3, updated_at = NOW() WHERE id = $4";
+
+    if (organization_id) {
+      params.push(organization_id);
+      query += " AND organization_id = $5";
+    }
+
+    const result = await pool.query(query, params);
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Chyba při aktualizaci uživatele:", err);
+    throw err;
+  }
+}
+
 export async function insertNewOrganization(user) {
   // očekáváme objekt user: { name, surname, email, password, rights, organization, avatar }
   try {
@@ -541,6 +618,48 @@ export async function organizationInfoFromDB(organization_id) {
     return dataOrganizationInfo;
   } catch (err) {
     console.error("Chyba při MODUL ORGANIZATION OPSIUM INFO:", err);
+    throw err;
+  }
+}
+
+export async function updateOrganization(organization) {
+  try {
+    const {
+      organization_id,
+      name,
+      street,
+      city,
+      postal_code,
+      ico,
+      dic,
+      phone,
+      email,
+    } = organization || {};
+
+    if (!organization_id || !name || !street || !city || !postal_code) {
+      throw new Error(
+        "Missing required organization fields: organization_id, name, street, city or postal_code",
+      );
+    }
+
+    const result = await pool.query(
+      "UPDATE organizations SET name = $1, street = $2, city = $3, postal_code = $4, ico = $5, dic = $6, phone = $7, email = $8 WHERE id = $9",
+      [
+        name,
+        street,
+        city,
+        postal_code,
+        ico,
+        dic,
+        phone || {},
+        email || {},
+        organization_id,
+      ],
+    );
+
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Chyba při aktualizaci organizace:", err);
     throw err;
   }
 }

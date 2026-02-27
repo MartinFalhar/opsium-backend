@@ -10,9 +10,11 @@ import {
   branchesList,
   membersList,
   editBranch,
+  editUser,
   superadminInfo,
   adminInfo,
   organizationInfo,
+  editOrganization,
   branchInfo,
 } from "../controllers/admin.controller.js";
 
@@ -30,6 +32,8 @@ router.post("/update_member", editMember);
 
 router.post("/update_branch", editBranch);
 
+router.post("/update_user", editUser);
+
 router.post("/admin_list", adminsList);
 
 router.post("/users_list", usersList);
@@ -43,6 +47,8 @@ router.get("/superadminInfo", superadminInfo);
 router.post("/adminInfo", adminInfo);
 
 router.post("/organizationInfo", organizationInfo);
+
+router.post("/update_organization", editOrganization);
 
 router.post("/branchInfo", branchInfo);
 
