@@ -24,6 +24,71 @@ import {
 import bodyParser from "body-parser";
 import bcrypt from "bcrypt";
 import path from "path";
+import fs from "fs/promises";
+import multer from "multer";
+
+const __dirname = path.resolve();
+const logosDir = path.join(__dirname, "uploads", "logos");
+const MAX_LOGO_SIZE_BYTES = 100 * 1024;
+
+const logoStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      await fs.mkdir(logosDir, { recursive: true });
+      cb(null, logosDir);
+    } catch (error) {
+      cb(error, logosDir);
+    }
+  },
+  filename: (req, file, cb) => {
+    const organizationId = Number(req.body?.organization_id);
+    if (!organizationId) {
+      cb(new Error("Chybí organization_id."), "");
+      return;
+    }
+
+    const extension = path.extname(file.originalname || "").toLowerCase();
+    const allowedExtensions = [".png", ".jpg", ".jpeg", ".webp", ".svg"];
+    const safeExtension = allowedExtensions.includes(extension)
+      ? extension
+      : ".png";
+
+    cb(null, `logo_${organizationId}${safeExtension}`);
+  },
+});
+
+const logoUpload = multer({
+  storage: logoStorage,
+  limits: { fileSize: MAX_LOGO_SIZE_BYTES },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype?.startsWith("image/")) {
+      cb(new Error("Nahrát lze pouze obrázek."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+export function uploadOrganizationLogoMiddleware(req, res, next) {
+  logoUpload.single("logo")(req, res, (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    if (
+      error instanceof multer.MulterError &&
+      error.code === "LIMIT_FILE_SIZE"
+    ) {
+      res.status(400).json({ message: "Logo nesmí být větší než 100 kB." });
+      return;
+    }
+
+    res
+      .status(400)
+      .json({ message: error.message || "Chyba nahrávání souboru." });
+  });
+}
 
 export async function createAdmin(req, res) {
   try {
@@ -362,6 +427,71 @@ export async function branchInfo(req, res) {
     return res.status(500).json({
       success: false,
       message: "Chyba serveru při získávání BRANCH INFO",
+    });
+  }
+}
+
+export async function uploadOrganizationLogo(req, res) {
+  try {
+    const organizationId = Number(req.body?.organization_id);
+
+    if (!organizationId) {
+      return res.status(400).json({ message: "Chybí organization_id." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Soubor nebyl nahrán." });
+    }
+
+    const allFiles = await fs.readdir(logosDir).catch(() => []);
+    const expectedPrefix = `logo_${organizationId}`;
+    const oldFiles = allFiles.filter(
+      (fileName) =>
+        fileName.startsWith(expectedPrefix) && fileName !== req.file.filename,
+    );
+
+    await Promise.all(
+      oldFiles.map((fileName) =>
+        fs.unlink(path.join(logosDir, fileName)).catch(() => null),
+      ),
+    );
+
+    return res.json({
+      message: "Logo bylo úspěšně nahráno.",
+      logoUrl: `/uploads/logos/${req.file.filename}`,
+    });
+  } catch (error) {
+    console.error("Controller > uploadOrganizationLogo error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Chyba serveru při nahrávání loga.",
+    });
+  }
+}
+
+export async function organizationLogo(req, res) {
+  try {
+    const organizationId = Number(req.params.organizationId);
+    if (!organizationId) {
+      return res.status(400).json({ message: "Neplatné organizationId." });
+    }
+
+    await fs.mkdir(logosDir, { recursive: true });
+    const logoFiles = await fs.readdir(logosDir);
+    const expectedPrefix = `logo_${organizationId}`;
+    const fileName = logoFiles.find((name) => name.startsWith(expectedPrefix));
+
+    if (!fileName) {
+      return res.json({ logoUrl: null });
+    }
+
+    return res.json({ logoUrl: `/uploads/logos/${fileName}` });
+  } catch (error) {
+    console.error("Controller > organizationLogo error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Chyba serveru při načítání loga organizace.",
     });
   }
 }

@@ -16,6 +16,9 @@ import {
   organizationInfo,
   editOrganization,
   branchInfo,
+  uploadOrganizationLogoMiddleware,
+  uploadOrganizationLogo,
+  organizationLogo,
 } from "../controllers/admin.controller.js";
 
 const router = express.Router();
@@ -51,5 +54,13 @@ router.post("/organizationInfo", organizationInfo);
 router.post("/update_organization", editOrganization);
 
 router.post("/branchInfo", branchInfo);
+
+router.post(
+  "/upload_organization_logo",
+  uploadOrganizationLogoMiddleware,
+  uploadOrganizationLogo,
+);
+
+router.get("/organization_logo/:organizationId", organizationLogo);
 
 export default router;
