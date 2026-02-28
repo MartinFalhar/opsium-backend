@@ -1,6 +1,8 @@
 import express from "express";
 import {
   searchContacts,
+  updateContacts,
+  deleteContacts,
   searchForServices,
   searchVatCurrent,
   searchVatAtDate,
@@ -15,6 +17,10 @@ const router = express.Router();
 // router.post("/create_client", createClient);
 
 router.post("/contacts-search", authenticateToken, searchContacts);
+
+router.post("/contacts-update", authenticateToken, updateContacts);
+
+router.post("/contacts-delete", authenticateToken, deleteContacts);
 
 router.get("/vat/current", searchVatCurrent);
 

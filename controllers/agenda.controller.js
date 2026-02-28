@@ -1,4 +1,6 @@
 import { searchContactsFromDB } from "../models/agenda.model.js";
+import { updateContactInDB } from "../models/agenda.model.js";
+import { deleteContactInDB } from "../models/agenda.model.js";
 import { getVatCurrent } from "../models/agenda.model.js";
 import { getVatAtDate } from "../models/agenda.model.js";
 import { searchForServicesFromDB } from "../models/agenda.model.js";
@@ -14,6 +16,40 @@ export async function searchContacts(req, res) {
       // message: "Nahrání proběhlo v pořádku"
     } else {
       res.json({ message: "Selhání při nahrávání kontaktů" });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function updateContacts(req, res) {
+  try {
+    const changedContact = req.body.changedContact;
+    const organization_id = req.user.organization_id;
+
+    const result = await updateContactInDB(changedContact, organization_id);
+
+    if (result) {
+      res.json(result);
+    } else {
+      res.json({ message: "Selhání při změně kontaktu." });
+    }
+  } catch (error) {
+    res.json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function deleteContacts(req, res) {
+  try {
+    const id = req.body.id;
+    const organization_id = req.user.organization_id;
+
+    const result = await deleteContactInDB(id, organization_id);
+
+    if (result) {
+      res.json(result);
+    } else {
+      res.json({ message: "Selhání při smazání kontaktu." });
     }
   } catch (error) {
     res.json({ success: false, message: "Chyba serveru" });

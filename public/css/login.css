@@ -32,9 +32,17 @@ label {
 }
 
 .card {
+  overflow: hidden;
+  isolation: isolate;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  background: linear-gradient(
+    155deg,
+    rgba(243, 244, 246, 0.56) 0%,
+    rgba(224, 231, 240, 0.58) 55%,
+    rgba(169, 183, 201, 0.54) 100%
+  );
   width: var(--card-width);
   height: var(--card-height);
   padding: 3px;
@@ -46,7 +54,7 @@ label {
   flex-direction: column;
   display: flex;
   font-size: 1.5em;
-  color: rgb(#789ac1);
+  color: #789ac1;
   font-family: "Roboto";
   box-shadow: 4px 4px 30px rgba(0, 0, 0, 0.3);
   opacity: 1;
@@ -64,43 +72,56 @@ label {
 
 .card::before {
   content: "";
-  width: 104%;
-  height: 102%;
+  width: 128%;
+  height: 128%;
   border-radius: 30px;
-  background-image: linear-gradient(
-    var(--rotate),
-    #e0e7f0,
-    #d2d5da 43%,
-    #789ac1
+  background-image: conic-gradient(
+    from var(--rotate),
+    rgba(243, 244, 246, 0.25) 0deg,
+    rgba(224, 231, 240, 0.72) 100deg,
+    rgba(169, 183, 201, 1) 190deg,
+    rgba(120, 154, 193, 0.95) 280deg,
+    rgba(243, 244, 246, 0.25) 360deg
   );
   position: absolute;
-  z-index: -1;
-  top: -1%;
-  left: -2%;
-  animation: spin 13s linear infinite;
+  z-index: 0;
+  top: -14%;
+  left: -14%;
+  opacity: 0.98;
+  mix-blend-mode: screen;
+  filter: saturate(1.7) contrast(1.2);
+  animation: spin 5.5s linear infinite;
 }
 
 .card::after {
   position: absolute;
   content: "";
-  top: calc(var(--card-height) / 6);
-  left: 0;
+  top: -10%;
+  left: -10%;
   right: 0;
-  z-index: -1;
-  height: 100%;
-  width: 100%;
+  z-index: 0;
+  height: 120%;
+  width: 120%;
   margin: 0 auto;
-  transform: scale(0.8);
-  filter: blur(calc(var(--card-height) / 6));
-  background-image: linear-gradient(
-    var(--rotate),
-    #e0e7f0,
-    #d2d5da 43%,
-    #789ac1
+  transform: scale(0.86);
+  background-image: conic-gradient(
+    from var(--rotate),
+    rgba(255, 255, 255, 0.38) 0deg,
+    rgba(224, 231, 240, 0.82) 110deg,
+    rgba(169, 183, 201, 0.95) 210deg,
+    rgba(120, 154, 193, 0.82) 300deg,
+    rgba(255, 255, 255, 0.38) 360deg
   );
-  opacity: 1;
+  opacity: 0.92;
+  mix-blend-mode: color-dodge;
   transition: opacity 0.5s;
-  animation: spin 20s linear infinite;
+  filter: blur(calc(var(--card-height) / 11)) saturate(1.85) contrast(1.25);
+  animation: spin 3.8s linear infinite reverse;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
 }
 @property --rotate {
   syntax: "<angle>";

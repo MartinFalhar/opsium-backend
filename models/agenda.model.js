@@ -19,6 +19,116 @@ export async function searchContactsFromDB(body) {
   }
 }
 
+export async function updateContactInDB(contact, organization_id) {
+  try {
+    if (!contact) {
+      throw new Error("Chybí data kontaktu pro uložení.");
+    }
+
+    const columnsResult = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'contacts';",
+    );
+
+    const allColumns = columnsResult.rows.map((row) => row.column_name);
+    const blockedColumns = new Set([
+      "id",
+      "organization_id",
+      "created_at",
+      "updated_at",
+    ]);
+
+    const editableColumns = allColumns.filter((column) => !blockedColumns.has(column));
+    const updateKeys = Object.keys(contact).filter((key) => editableColumns.includes(key));
+    const hasCreatedAt = allColumns.includes("created_at");
+    const hasUpdatedAt = allColumns.includes("updated_at");
+    const hasOrganizationId = allColumns.includes("organization_id");
+    const isInsert = !contact.id;
+
+    if (isInsert) {
+      const insertColumns = [...updateKeys];
+      const insertValues = updateKeys.map((key) => contact[key]);
+
+      if (hasOrganizationId) {
+        insertColumns.push("organization_id");
+        insertValues.push(Number(organization_id));
+      }
+
+      if (hasCreatedAt) {
+        insertColumns.push("created_at");
+      }
+
+      if (hasUpdatedAt) {
+        insertColumns.push("updated_at");
+      }
+
+      const columnSql = insertColumns.map((key) => `\"${key}\"`).join(", ");
+      let valueIndex = 0;
+      const valueSql = insertColumns
+        .map((key) => {
+          if (key === "created_at" || key === "updated_at") {
+            return "NOW()";
+          }
+          valueIndex += 1;
+          return `$${valueIndex}`;
+        })
+        .join(", ");
+
+      const insertSql = `
+        INSERT INTO contacts (${columnSql})
+        VALUES (${valueSql})
+        RETURNING *;
+      `;
+
+      const insertResult = await pool.query(insertSql, insertValues);
+      return insertResult.rows;
+    }
+
+    if (updateKeys.length === 0) {
+      const unchanged = await pool.query(
+        "SELECT * FROM contacts WHERE id = $1 AND organization_id = $2 LIMIT 1;",
+        [contact.id, organization_id],
+      );
+      return unchanged.rows;
+    }
+
+    const setParts = updateKeys.map((key, index) => `\"${key}\" = $${index + 1}`);
+    const values = updateKeys.map((key) => contact[key]);
+    const updatedAtSql = hasUpdatedAt ? ", updated_at = NOW()" : "";
+
+    const sql = `
+      UPDATE contacts
+      SET ${setParts.join(", ")}${updatedAtSql}
+      WHERE id = $${updateKeys.length + 1} AND organization_id = $${updateKeys.length + 2}
+      RETURNING *;
+    `;
+
+    const result = await pool.query(sql, [
+      ...values,
+      Number(contact.id),
+      Number(organization_id),
+    ]);
+
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při aktualizaci kontaktu:", err);
+    throw err;
+  }
+}
+
+export async function deleteContactInDB(id, organization_id) {
+  try {
+    const result = await pool.query(
+      "DELETE FROM contacts WHERE id = $1 AND organization_id = $2 RETURNING id;",
+      [Number(id), Number(organization_id)],
+    );
+
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při mazání kontaktu:", err);
+    throw err;
+  }
+}
+
 export async function getVatCurrent() {
 
   try {
