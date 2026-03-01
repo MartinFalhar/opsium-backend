@@ -9,6 +9,10 @@ import {
   updateServices,
   deleteServices,
   getDashboardData,
+  searchTasks,
+  createTask,
+  updateTask,
+  deleteTask,
 } from "../controllers/agenda.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 
@@ -33,5 +37,13 @@ router.post("/services-update", authenticateToken, updateServices);
 router.post("/services-delete", authenticateToken, deleteServices);
 
 router.get("/dashboard", authenticateToken, getDashboardData);
+
+router.post("/tasks-search", authenticateToken, searchTasks);
+
+router.post("/tasks-create", authenticateToken, createTask);
+
+router.post("/tasks-update", authenticateToken, updateTask);
+
+router.post("/tasks-delete", authenticateToken, deleteTask);
 
 export default router;

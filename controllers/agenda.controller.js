@@ -7,6 +7,10 @@ import { searchForServicesFromDB } from "../models/agenda.model.js";
 import { updateServicesInDB } from "../models/agenda.model.js";
 import { deleteServicesInDB } from "../models/agenda.model.js";
 import { getDashboardDataFromDB } from "../models/agenda.model.js";
+import { searchTasksFromDB } from "../models/agenda.model.js";
+import { createTaskInDB } from "../models/agenda.model.js";
+import { updateTaskInDB } from "../models/agenda.model.js";
+import { deleteTaskInDB } from "../models/agenda.model.js";
 
 export async function searchContacts(req, res) {
   try {
@@ -141,5 +145,60 @@ export async function getDashboardData(req, res) {
     return res
       .status(500)
       .json({ success: false, message: "Chyba serveru při načítání dashboardu" });
+  }
+}
+
+export async function searchTasks(req, res) {
+  try {
+    const result = await searchTasksFromDB(req.user.branch_id);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function createTask(req, res) {
+  try {
+    const taskPayload = {
+      ...req.body,
+      created_by: req.user.id,
+      user_id: req.body.user_id ?? req.user.branch_id,
+    };
+
+    if (!taskPayload.title || !taskPayload.entity_type || !taskPayload.entity_id) {
+      return res.status(400).json({ success: false, message: "Chybí povinná pole úkolu." });
+    }
+
+    const result = await createTaskInDB(taskPayload);
+    return res.status(201).json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function updateTask(req, res) {
+  try {
+    const taskPayload = {
+      ...req.body,
+      user_id: req.body.user_id ?? req.user.branch_id,
+    };
+
+    if (!taskPayload.id || !taskPayload.title || !taskPayload.entity_type || !taskPayload.entity_id) {
+      return res.status(400).json({ success: false, message: "Chybí povinná pole úkolu." });
+    }
+
+    const result = await updateTaskInDB(taskPayload);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
+  }
+}
+
+export async function deleteTask(req, res) {
+  try {
+    const result = await deleteTaskInDB(req.body.id);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Chyba serveru" });
   }
 }

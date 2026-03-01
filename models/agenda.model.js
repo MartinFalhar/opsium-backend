@@ -288,3 +288,229 @@ export async function getDashboardDataFromDB(branch_id) {
     throw err;
   }
 }
+
+function normalizeDueDateInput(value) {
+  if (!value) {
+    return null;
+  }
+
+  const raw = `${value}`.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const dottedDate = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dottedDate) {
+    const day = dottedDate[1].padStart(2, "0");
+    const month = dottedDate[2].padStart(2, "0");
+    const year = dottedDate[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  return raw;
+}
+
+export async function searchTasksFromDB(branch_id) {
+  try {
+    const normalizedBranchId = Number(branch_id);
+
+    const result = await pool.query(
+      `SELECT
+         t.id,
+         t.title,
+         t.description,
+         t.priority,
+         t.status,
+         t.created_by,
+         t.order_id,
+         t.client_id,
+         t.template_id,
+         t.due_date,
+         t.completed_at,
+         t.created_at,
+         t.updated_at,
+         tl.entity_type,
+         tl.entity_id,
+         ta.user_id
+       FROM tasks t
+       LEFT JOIN task_links tl ON tl.task_id = t.id
+       LEFT JOIN task_assignments ta ON ta.task_id = t.id
+       WHERE ta.user_id = $1 OR t.created_by = $2
+       ORDER BY t.created_at DESC;`,
+      [normalizedBranchId, normalizedBranchId],
+    );
+
+    return result.rows;
+  } catch (err) {
+    console.error("Chyba při načítání úkolů:", err);
+    throw err;
+  }
+}
+
+export async function createTaskInDB(body) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const dueDate = normalizeDueDateInput(body.due_date);
+    const priority = body.priority || body.priority_task || "medium";
+    const status = body.status || "new";
+
+    const taskInsertResult = await client.query(
+      `INSERT INTO tasks (
+         title,
+         description,
+         priority,
+         status,
+         created_by,
+         order_id,
+         client_id,
+         template_id,
+         due_date,
+         completed_at,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, NOW(), NOW())
+       RETURNING *;`,
+      [
+        body.title,
+        body.description || null,
+        priority,
+        status,
+        Number(body.created_by),
+        body.order_id ? Number(body.order_id) : null,
+        body.client_id ? Number(body.client_id) : null,
+        body.template_id ? Number(body.template_id) : null,
+        dueDate,
+      ],
+    );
+
+    const task = taskInsertResult.rows[0];
+
+    const taskLinkResult = await client.query(
+      `INSERT INTO task_links (task_id, entity_type, entity_id)
+       VALUES ($1, $2, $3)
+       RETURNING *;`,
+      [task.id, body.entity_type, Number(body.entity_id)],
+    );
+
+    const taskAssignmentResult = await client.query(
+      `INSERT INTO task_assignments (task_id, user_id, assigned_at)
+       VALUES ($1, $2, NOW())
+       RETURNING *;`,
+      [task.id, Number(body.user_id)],
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      task,
+      link: taskLinkResult.rows[0],
+      assignment: taskAssignmentResult.rows[0],
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Chyba při vytváření úkolu:", err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateTaskInDB(body) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const dueDate = normalizeDueDateInput(body.due_date);
+    const priority = body.priority || body.priority_task || "medium";
+    const status = body.status || "new";
+
+    const taskUpdateResult = await client.query(
+      `UPDATE tasks
+       SET
+         title = $1,
+         description = $2,
+         priority = $3,
+         status = $4,
+         due_date = $5,
+         updated_at = NOW()
+       WHERE id = $6
+       RETURNING *;`,
+      [
+        body.title,
+        body.description || null,
+        priority,
+        status,
+        dueDate,
+        Number(body.id),
+      ],
+    );
+
+    if (taskUpdateResult.rows.length === 0) {
+      throw new Error("Úkol nebyl nalezen.");
+    }
+
+    await client.query("DELETE FROM task_links WHERE task_id = $1;", [
+      Number(body.id),
+    ]);
+
+    const taskLinkResult = await client.query(
+      `INSERT INTO task_links (task_id, entity_type, entity_id)
+       VALUES ($1, $2, $3)
+       RETURNING *;`,
+      [Number(body.id), body.entity_type, Number(body.entity_id)],
+    );
+
+    await client.query("DELETE FROM task_assignments WHERE task_id = $1;", [
+      Number(body.id),
+    ]);
+
+    const taskAssignmentResult = await client.query(
+      `INSERT INTO task_assignments (task_id, user_id, assigned_at)
+       VALUES ($1, $2, NOW())
+       RETURNING *;`,
+      [Number(body.id), Number(body.user_id)],
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      task: taskUpdateResult.rows[0],
+      link: taskLinkResult.rows[0],
+      assignment: taskAssignmentResult.rows[0],
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Chyba při úpravě úkolu:", err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteTaskInDB(id) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      "DELETE FROM tasks WHERE id = $1 RETURNING id;",
+      [Number(id)],
+    );
+
+    await client.query("COMMIT");
+
+    return result.rows;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Chyba při mazání úkolu:", err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
