@@ -7,6 +7,7 @@ import {
   loadExamsListFromDB,
   loadExaminationFromDB,
 } from "../models/client.model.js";
+import { analyzeOptometryAnamnesisAi } from "../services/analyzeOptometryAnamnesisAi.js";
 
 export async function loadClients(req, res) {
   try {
@@ -107,5 +108,26 @@ export async function findClientBySurname(req, res) {
   } catch (error) {
     console.error("Chyba při hledání klienta:", error);
     res.status(500).json({ message: "Nastala chyba při hledání klienta." });
+  }
+}
+
+export async function analyzeOptometryAnamnesis(req, res) {
+  try {
+    const anamnesisText = String(req.body?.anamnesisText ?? "").trim();
+    const userQuery = String(req.body?.userQuery ?? "").trim();
+
+    if (!anamnesisText) {
+      return res
+        .status(400)
+        .json({ message: "Text anamnézy je povinný pro AI analýzu." });
+    }
+
+    const findings = await analyzeOptometryAnamnesisAi(anamnesisText, userQuery);
+    return res.json({ findings });
+  } catch (error) {
+    console.error("Chyba při AI analýze anamnézy:", error);
+    return res.status(500).json({
+      message: error?.message || "Nepodařilo se zpracovat AI analýzu.",
+    });
   }
 }
